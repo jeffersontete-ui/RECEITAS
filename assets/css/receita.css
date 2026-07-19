@@ -1,0 +1,119 @@
+/* ============================================================================
+   receita.css — a folha impressa (A4 retrato) e os 3 modelos.
+   Todos os ajustes (fonte, tamanho, espaçamento, margens, carimbo, assinatura)
+   entram por variáveis CSS que o format.js escreve no elemento .a4.
+   ============================================================================ */
+
+.a4 {
+  /* variáveis padrão — sobrescritas em tempo real pelo format.js */
+  --rx-font: "Times New Roman", Georgia, serif;
+  --rx-size: 12pt;
+  --rx-lh: 1.4;
+  --rx-mt: 14mm; --rx-mr: 16mm; --rx-mb: 14mm; --rx-ml: 16mm;
+  --stamp-h: 22mm;      /* altura da caixa do carimbo */
+  --stamp-scale: 1;     /* escala do carimbo gerado    */
+  --sig-gap: 10mm;      /* respiro acima da assinatura  */
+
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 20px 50px rgba(20,33,31,.14);
+  padding: var(--rx-mt) var(--rx-mr) var(--rx-mb) var(--rx-ml);
+  font-family: var(--rx-font);
+  font-size: var(--rx-size);
+  line-height: var(--rx-lh);
+  display: flex; flex-direction: column;
+}
+.a4 * { font-family: inherit; }
+
+.rx-body { flex: 1 1 auto; }
+.rx-foot { flex: 0 0 auto; margin-top: var(--sig-gap); }
+
+/* Bloco de assinatura + carimbo */
+.rx-sign { display: flex; justify-content: flex-end; }
+.rx-sign .sign-col { width: 78mm; text-align: center; }
+.rx-stampbox {
+  min-height: var(--stamp-h);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 2mm;
+}
+.rx-stampbox .stamp { transform: scale(var(--stamp-scale)); transform-origin: bottom center; }
+.rx-sign-line { border-top: 1px solid #000; padding-top: 2px; font-size: .82em; }
+.rx-localdata { font-size: .92em; margin-bottom: 4mm; }
+.rx-localdata .campo { display: inline-block; min-width: 26px; border-bottom: 1px solid #444; text-align: center; }
+
+/* Cabeçalho de emitente genérico */
+.rx-emit-name { font-weight: 700; font-size: 1.08em; }
+.rx-emit-line { font-size: .82em; color: #222; }
+.rx-emit-sub  { font-size: .8em; color: #444; }
+.rx-blank { border-bottom: 1px solid #555; display: inline-block; min-width: 60mm; }
+
+/* Paciente / campos */
+.rx-field { margin: 2mm 0; }
+.rx-field .lbl { font-weight: 700; }
+.rx-field .val { border-bottom: 1px dotted #666; }
+
+/* Lista de prescrição — comum aos 3 modelos */
+.rx-presc-title { text-align: center; font-weight: 700; letter-spacing: 2px; margin: 5mm 0 3mm; font-size: .95em; }
+ol.rx-list { margin: 0; padding-left: 8mm; }
+ol.rx-list > li { margin-bottom: 3.5mm; }
+ol.rx-list .med { font-weight: 700; }
+ol.rx-list .qtd { letter-spacing: 1px; }
+ol.rx-list .pos { display: block; font-size: .9em; color: #222; margin-top: 1mm; }
+
+/* ── Carimbo gerado (texto) ──────────────────────────────────────────────── */
+.stamp { display: inline-block; padding: 2mm 4mm; text-align: center; color: #16324a; }
+.stamp .s1 { font-weight: 800; letter-spacing: .3px; }
+.stamp .s2 { font-size: .82em; font-style: italic; }
+.stamp .s3 { font-size: .84em; }
+.stamp.st-box   { border: 1.5px solid #16324a; border-radius: 3px; }
+.stamp.st-dbl   { border: 1px solid #16324a; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #16324a; }
+.stamp.st-under { border-bottom: 2px solid #16324a; }
+.stamp.st-oval  { border: 1.5px solid #16324a; border-radius: 50%/40%; padding: 3mm 7mm; }
+.stamp.st-left  { text-align: left; border-left: 3px solid #16324a; padding-left: 3mm; }
+.stamp.st-plain { }
+
+/* =====================  MODELO 1 — SIMPLES CLÁSSICA  ====================== */
+.m-classica .rx-head { display: flex; align-items: flex-start; gap: 6mm; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-classica .caduceu { flex: 0 0 auto; }
+.m-classica .doc { flex: 1; }
+.m-classica .titulo { font-size: 1.3em; font-weight: 700; letter-spacing: 1px; text-align: right; }
+
+/* =====================  MODELO 2 — SIMPLES RENOVÁVEL  ==================== */
+.m-renovavel .rx-head { text-align: center; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-renovavel .titulo { font-size: 1.25em; font-weight: 700; letter-spacing: 2px; }
+.m-renovavel .reno-badge {
+  display: inline-block; border: 1.4px solid #0d8a72; color: #075c4c;
+  border-radius: 4px; padding: 1mm 4mm; font-size: .72em; letter-spacing: 1px;
+  font-weight: 700; margin-top: 2mm;
+}
+.m-renovavel .reno-box {
+  margin-top: 4mm; border: 1px solid #999; border-radius: 4px; padding: 3mm;
+  font-size: .8em;
+}
+.m-renovavel .reno-box .rb-title { font-weight: 700; letter-spacing: 1px; margin-bottom: 2mm; text-align:center; }
+.m-renovavel .reno-vias { display: flex; gap: 4mm; }
+.m-renovavel .reno-vias .via { flex: 1; text-align: center; }
+.m-renovavel .reno-vias .via .chk { display: inline-block; width: 6mm; height: 6mm; border: 1.4px solid #333; margin-bottom: 1mm; }
+
+/* =====================  MODELO 3 — C.E. MOD. 01  ========================= */
+.m-ce1 .rx-topo { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-ce1 .topo-right { text-align: right; }
+.m-ce1 .topo-right .t1 { font-weight: 700; letter-spacing: 1px; }
+.m-ce1 .topo-right .t2 { font-weight: 800; color: #16324a; letter-spacing: 1px; line-height: 1.1; }
+.m-ce1 .topo-right .vias { font-size: .72em; color: #444; margin-top: 1mm; }
+.m-ce1 .presc-min { min-height: 60mm; }
+.m-ce1 .ce-boxes { display: flex; gap: 4mm; margin-top: 5mm; }
+.m-ce1 .ce-box { flex: 1; border: 1px solid #333; border-radius: 3px; padding: 2.5mm; font-size: .74em; min-height: 34mm; }
+.m-ce1 .ce-box .cbt { font-weight: 700; text-align: center; letter-spacing: .5px; margin-bottom: 2mm; }
+.m-ce1 .ce-line { border-bottom: 1px solid #666; height: 5mm; margin-bottom: 2mm; }
+
+/* ── Ajustes de impressão ────────────────────────────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+  #print-root, #print-root * { visibility: visible; }
+  #print-root { position: absolute; inset: 0; }
+  .a4 { box-shadow: none; margin: 0; }
+  @page { size: A4 portrait; margin: 0; }
+}
