@@ -1,0 +1,4 @@
+CLIENTE_ID;CLIENTE;CLI_CPF;CLI_ENDERECO;CLI_BAIRRO;CLI_CIDADE
+1001;Carlos Pereira;;Rua das Flores, 100;Centro;São Paulo
+1002;Fernanda Rocha;;Av. Brasil, 2000;Jardim;Campinas
+1003;Roberto Alves;;Rua B, 45;Vila Nova;Santos

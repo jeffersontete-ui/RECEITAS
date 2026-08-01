@@ -1,0 +1,286 @@
+/* ============================================================================
+   receita.css — a folha impressa (A4 retrato) e os 3 modelos.
+   Todos os ajustes (fonte, tamanho, espaçamento, margens, carimbo, assinatura)
+   entram por variáveis CSS que o format.js escreve no elemento .a4.
+   ============================================================================ */
+
+.a4 {
+  /* variáveis padrão — sobrescritas em tempo real pelo format.js */
+  --rx-font: "Times New Roman", Georgia, serif;
+  --rx-font-head: "Times New Roman", Georgia, serif;
+  --rx-size: 12pt;
+  --rx-lh: 1.4;
+  --rx-mt: 14mm; --rx-mr: 16mm; --rx-mb: 14mm; --rx-ml: 16mm;
+  --stamp-h: 22mm;      /* altura da caixa do carimbo */
+  --stamp-scale: 1;     /* escala do carimbo gerado    */
+  --sig-gap: 10mm;      /* respiro acima da assinatura  */
+
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 20px 50px rgba(20,33,31,.14);
+  padding: var(--rx-mt) var(--rx-mr) var(--rx-mb) var(--rx-ml);
+  font-family: var(--rx-font);
+  font-size: var(--rx-size);
+  line-height: var(--rx-lh);
+  display: flex; flex-direction: column;
+}
+.a4 * { font-family: inherit; }
+/* Cabeçalho (nome do médico e títulos) usa a fonte de cabeçalho */
+.rx-emit-name, .titulo, .rsc-title-text, .rcem1-medico-nome, .t1, .t2,
+.rx-emit-name * { font-family: var(--rx-font-head); }
+
+/* Carimbo por imagem (URL da internet ou arquivo enviado) */
+.stamp-img {
+  display: inline-block;
+  max-height: calc(var(--stamp-h) - 1mm);
+  max-width: 72mm;
+  object-fit: contain;
+  transform: scale(var(--stamp-scale));
+  transform-origin: bottom center;
+}
+/* Assinatura (imagem) acima do carimbo */
+.sign-img { display: block; max-height: 14mm; max-width: 60mm; margin: 0 auto 1mm; object-fit: contain; }
+
+.rx-body { flex: 1 1 auto; }
+.rx-foot { flex: 0 0 auto; margin-top: var(--sig-gap); }
+
+/* Bloco de assinatura + carimbo */
+.rx-sign { display: flex; justify-content: flex-end; }
+.rx-sign .sign-col { width: 78mm; text-align: center; }
+.rx-stampbox {
+  min-height: var(--stamp-h);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 2mm;
+}
+.rx-stampbox .stamp { transform: scale(var(--stamp-scale)); transform-origin: bottom center; }
+.rx-sign-line { border-top: 1px solid #000; padding-top: 2px; font-size: .82em; }
+.rx-localdata { font-size: .92em; margin-bottom: 4mm; }
+.rx-localdata .campo { display: inline-block; min-width: 26px; border-bottom: 1px solid #444; text-align: center; }
+
+/* Cabeçalho de emitente genérico */
+.rx-emit-name { font-weight: 700; font-size: 1.08em; }
+.rx-emit-line { font-size: .82em; color: #222; }
+.rx-emit-sub  { font-size: .8em; color: #444; }
+.rx-blank { border-bottom: 1px solid #555; display: inline-block; min-width: 60mm; }
+
+/* Paciente / campos */
+.rx-field { margin: 2mm 0; }
+.rx-field .lbl { font-weight: 700; }
+.rx-field .val { border-bottom: 1px dotted #666; }
+
+/* Lista de prescrição — comum aos 3 modelos */
+.rx-presc-title { text-align: center; font-weight: 700; letter-spacing: 2px; margin: 5mm 0 3mm; font-size: .95em; }
+ol.rx-list { margin: 0; padding-left: 8mm; }
+ol.rx-list > li { margin-bottom: 3.5mm; }
+ol.rx-list .med { font-weight: 700; }
+ol.rx-list .qtd { letter-spacing: 1px; }
+ol.rx-list .pos { display: block; font-size: .9em; color: #222; margin-top: 1mm; }
+
+/* ── Carimbo gerado (texto) ──────────────────────────────────────────────── */
+.stamp { display: inline-block; padding: 2mm 4mm; text-align: center; color: #16324a; }
+.stamp .s1 { font-weight: 800; letter-spacing: .3px; }
+.stamp .s2 { font-size: .82em; font-style: italic; }
+.stamp .s3 { font-size: .84em; }
+.stamp.st-box   { border: 1.5px solid #16324a; border-radius: 3px; }
+.stamp.st-dbl   { border: 1px solid #16324a; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #16324a; }
+.stamp.st-under { border-bottom: 2px solid #16324a; }
+.stamp.st-oval  { border: 1.5px solid #16324a; border-radius: 50%/40%; padding: 3mm 7mm; }
+.stamp.st-left  { text-align: left; border-left: 3px solid #16324a; padding-left: 3mm; }
+.stamp.st-plain { }
+
+/* =====================  MODELO 1 — SIMPLES CLÁSSICA  ====================== */
+.m-classica .rx-head { display: flex; align-items: flex-start; gap: 6mm; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-classica .caduceu { flex: 0 0 auto; }
+.m-classica .doc { flex: 1; }
+.m-classica .titulo { font-size: 1.3em; font-weight: 700; letter-spacing: 1px; text-align: right; }
+
+/* =====================  MODELO 2 — SIMPLES RENOVÁVEL  ==================== */
+.m-renovavel .rx-head { text-align: center; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-renovavel .titulo { font-size: 1.25em; font-weight: 700; letter-spacing: 2px; }
+.m-renovavel .reno-badge {
+  display: inline-block; border: 1.4px solid #0d8a72; color: #075c4c;
+  border-radius: 4px; padding: 1mm 4mm; font-size: .72em; letter-spacing: 1px;
+  font-weight: 700; margin-top: 2mm;
+}
+.m-renovavel .reno-box {
+  margin-top: 4mm; border: 1px solid #999; border-radius: 4px; padding: 3mm;
+  font-size: .8em;
+}
+.m-renovavel .reno-box .rb-title { font-weight: 700; letter-spacing: 1px; margin-bottom: 2mm; text-align:center; }
+.m-renovavel .reno-vias { display: flex; gap: 4mm; }
+.m-renovavel .reno-vias .via { flex: 1; text-align: center; }
+.m-renovavel .reno-vias .via .chk { display: inline-block; width: 6mm; height: 6mm; border: 1.4px solid #333; margin-bottom: 1mm; }
+
+/* =====================  MODELO 3 — C.E. MOD. 01  ========================= */
+.m-ce1 .rx-topo { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
+.m-ce1 .topo-right { text-align: right; }
+.m-ce1 .topo-right .t1 { font-weight: 700; letter-spacing: 1px; }
+.m-ce1 .topo-right .t2 { font-weight: 800; color: #16324a; letter-spacing: 1px; line-height: 1.1; }
+.m-ce1 .topo-right .vias { font-size: .72em; color: #444; margin-top: 1mm; }
+.m-ce1 .presc-min { min-height: 60mm; }
+.m-ce1 .ce-boxes { display: flex; gap: 4mm; margin-top: 5mm; }
+.m-ce1 .ce-box { flex: 1; border: 1px solid #333; border-radius: 3px; padding: 2.5mm; font-size: .74em; min-height: 34mm; }
+.m-ce1 .ce-box .cbt { font-weight: 700; text-align: center; letter-spacing: .5px; margin-bottom: 2mm; }
+.m-ce1 .ce-line { border-bottom: 1px solid #666; height: 5mm; margin-bottom: 2mm; }
+
+/* ── Blocos genéricos comprador/fornecedor (reuso em vários modelos) ──────── */
+.ce-boxes { display: flex; gap: 4mm; margin-top: 5mm; }
+.ce-box { flex: 1; border: 1px solid #333; border-radius: 3px; padding: 2.5mm; font-size: .74em;
+  min-height: 34mm; display: flex; flex-direction: column; }
+.ce-box .cbt { font-weight: 700; text-align: center; letter-spacing: .5px; margin-bottom: 2mm; }
+.ce-line { border-bottom: 1px solid #666; height: 5mm; margin-bottom: 2mm; }
+.ce-emit-box { border: 1px solid #333; border-radius: 3px; padding: 2.5mm 3mm; margin-bottom: 3mm; min-height: 24mm; }
+.ce-emit-box .cbt { font-weight: 700; font-size: .72em; letter-spacing: .5px; border-bottom: 1px solid #999; padding-bottom: 1mm; margin-bottom: 1.5mm; }
+
+/* ── Receita Branca 2 vias ───────────────────────────────────────────────── */
+.m-branca2 { justify-content: flex-start; }
+.m-branca2 .b2-via { padding-bottom: 3mm; }
+.m-branca2 .b2-vialabel { font-size: .72em; font-weight: 700; letter-spacing: 1px; color: #444; text-align: right; }
+.m-branca2 .b2-head { text-align: center; border-bottom: 1.5px solid #333; padding-bottom: 2mm; margin-bottom: 2mm; }
+.m-branca2 .b2-title { font-weight: 800; letter-spacing: 1px; font-size: 1.15em; }
+.m-branca2 .b2-sub { font-size: .78em; color: #555; }
+.m-branca2 .b2-emit { margin-bottom: 2mm; }
+.m-branca2 .rx-list { min-height: 34mm; }
+.m-branca2 .b2-foot { margin-top: 3mm; }
+.m-branca2 .b2-corte { border-top: 2px dashed #888; text-align: center; margin: 4mm 0; }
+.m-branca2 .b2-corte span { background: #fff; padding: 0 3mm; font-size: .7em; color: #888; position: relative; top: -1.8mm; }
+
+/* ── Controle Especial 344/98 ────────────────────────────────────────────── */
+.m-ce344 .ce344-topo { display: flex; justify-content: space-between; align-items: stretch; border-bottom: 1.5px solid #333; padding-bottom: 2mm; margin-bottom: 3mm; gap: 3mm; }
+.m-ce344 .ce344-tit .t1 { font-weight: 800; letter-spacing: .5px; font-size: 1.02em; }
+.m-ce344 .ce344-tit .t2 { font-size: .8em; color: #555; }
+.m-ce344 .ce344-farm { border: 1px solid #333; border-radius: 3px; padding: 2mm 4mm; font-size: .72em; text-align: center; align-self: center; }
+.m-ce344 .presc-min { min-height: 55mm; }
+
+/* ── Antimicrobiano (faixa azul) ─────────────────────────────────────────── */
+.m-antimic .am-faixa { display: flex; justify-content: space-between; align-items: center; gap: 3mm;
+  background: #e8f0fb; border: 1.5px solid #1b5fa8; border-radius: 3px; padding: 2mm 3mm; margin-bottom: 3mm; }
+.m-antimic .am-title { font-weight: 800; letter-spacing: .5px; color: #123e73; }
+.m-antimic .am-sub { font-size: .78em; color: #355; }
+.m-antimic .am-vias { font-size: .72em; color: #123e73; text-align: right; }
+.m-antimic .am-num { font-size: .8em; font-weight: 700; color: #123e73; text-align: right; margin-top: 1mm; }
+.m-antimic .ce-emit-box { border-color: #1b5fa8; }
+.m-antimic .presc-min { min-height: 50mm; }
+
+/* ── Notificação de Receita A (faixa amarela) ────────────────────────────── */
+.m-notifa .na-faixa { display: flex; justify-content: space-between; align-items: center; gap: 3mm;
+  background: #fbf3cd; border: 1.5px solid #b7930f; border-radius: 3px; padding: 2mm 3mm; margin-bottom: 3mm; }
+.m-notifa .na-tit .t1 { font-weight: 800; letter-spacing: .5px; color: #6b5406; }
+.m-notifa .na-tit .t2 { font-size: .76em; color: #6b5406; }
+.m-notifa .na-badge { font-size: .72em; font-weight: 700; border: 1.2px solid #6b5406; color: #6b5406; padding: 1mm 2mm; white-space: nowrap; }
+.m-notifa .presc-min { min-height: 50mm; }
+
+/* ── Controle Especial Oficial (ANVISA 2.0) ──────────────────────────────── */
+.m-ceofi .ceo { }
+.m-ceofi .ceo-title { text-align: center; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; line-height: 1.15; font-size: 1.25em; margin-bottom: 2mm; }
+.m-ceofi .ceo-cod { position: absolute; top: 0; right: 0; border: 1px solid #333; padding: 1mm 2mm; text-align: center; font-size: .6em; }
+.m-ceofi .ceo-cod-l { color: #555; }
+.m-ceofi .ceo-cod-v { font-weight: 700; letter-spacing: .5px; margin-top: .5mm; }
+.m-ceofi .ceo { position: relative; }
+.m-ceofi .ceo-sec { background: #e2e2e2; text-align: center; font-weight: 700; font-size: .78em; text-transform: uppercase; letter-spacing: .5px; padding: 1mm; margin: 1.5mm 0; }
+.m-ceofi .ceo-tbl { width: 100%; border-collapse: collapse; }
+.m-ceofi .ceo-tbl td { border: 1px solid #333; padding: 1mm 2mm; vertical-align: top; }
+.m-ceofi .ceo-tbl .l { display: block; font-size: .64em; font-weight: 700; text-transform: uppercase; color: #333; }
+.m-ceofi .ceo-tbl .v { display: block; font-size: .9em; min-height: 4mm; }
+.m-ceofi .ceo-assin { border: 1px solid #333; border-top: none; padding: 2mm; text-align: center; min-height: 20mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm; }
+.m-ceofi .ceo-assin-l { font-size: .66em; text-transform: uppercase; border-top: 1px solid #333; padding-top: 1mm; }
+.m-ceofi .ceo-presc-l { font-weight: 700; font-size: .78em; text-transform: uppercase; border: 1px solid #333; background: #f4f4f4; padding: 1mm 2mm; margin: 2mm 0 0; }
+.m-ceofi .ceo-presc { border: 1px solid #333; border-top: none; min-height: 45mm; padding: 2mm 3mm; }
+.m-ceofi .ceo-bottom { margin-top: 2mm; }
+.m-ceofi .ceo-versao { text-align: center; font-size: .66em; color: #666; border-top: 1px solid #ccc; margin-top: 2mm; padding-top: 1mm; }
+
+/* ── Folha A4 em PAISAGEM com duas receitas (Receita Dupla) ──────────────── */
+.a4-land {
+  width: 297mm; min-height: 210mm; height: 210mm;
+  background: #fff; color: #111;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 20px 50px rgba(20,33,31,.14);
+  display: flex; overflow: hidden; position: relative;
+}
+/* Alça divisória arrastável (só na tela; escondida ao imprimir) */
+.dup-divider {
+  position: absolute; top: 0; bottom: 0; width: 16px;
+  transform: translateX(-50%); z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  cursor: col-resize; touch-action: none;
+}
+.dup-divider::before {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 1.5px;
+  background: transparent; transition: background .12s;
+}
+.a4-land:hover .dup-divider::before,
+body.dup-dragging .dup-divider::before { background: #0d8a72; }
+.dup-divider-grip {
+  width: 9px; height: 46px; border-radius: 6px;
+  background: #fff; border: 1.5px solid #0d8a72;
+  box-shadow: 0 1px 4px rgba(0,0,0,.28);
+  opacity: 0; transition: opacity .12s;
+}
+.a4-land:hover .dup-divider-grip,
+body.dup-dragging .dup-divider-grip { opacity: 1; }
+.a4-land .rx-half {
+  --rx-font: "Times New Roman", Georgia, serif;
+  --rx-font-head: "Times New Roman", Georgia, serif;
+  --rx-size: 11pt; --rx-lh: 1.35;
+  --rx-mt: 10mm; --rx-mr: 10mm; --rx-mb: 10mm; --rx-ml: 10mm;
+  --stamp-h: 20mm; --stamp-scale: 1; --sig-gap: 8mm;
+  width: 50%; height: 210mm; box-sizing: border-box;
+  padding: var(--rx-mt) var(--rx-mr) var(--rx-mb) var(--rx-ml);
+  font-family: var(--rx-font);
+  font-size: var(--rx-size);
+  line-height: var(--rx-lh);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.a4-land .rx-half + .rx-half { border-left: 1px dashed #b9b9b9; }
+
+/* ── Uso Contínuo — 2 vias (oficial) ─────────────────────────────────────── */
+.m-continuo { justify-content: flex-start; }
+.m-continuo .uc-via { padding-bottom: 3mm; }
+.m-continuo .uc-vialabel { font-size: .72em; font-weight: 700; letter-spacing: 1px; color: #444; text-align: right; margin-bottom: 1mm; }
+.m-continuo .uc-flags { display: flex; gap: 6mm; margin: 2mm 0; }
+.m-continuo .uc-flag { font-size: .78em; font-weight: 700; border: 1px solid #333; border-radius: 3px; padding: 1mm 3mm; }
+.m-continuo .presc-min { min-height: 34mm; }
+.m-continuo .b2-corte { border-top: 2px dashed #888; text-align: center; margin: 4mm 0; }
+.m-continuo .b2-corte span { background: #fff; padding: 0 3mm; font-size: .7em; color: #888; position: relative; top: -1.8mm; }
+
+/* ── Uso Contínuo (enxuta) ───────────────────────────────────────────────── */
+.uc2-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 4mm; }
+.uc2-emit { flex: 1; }
+.uc2-badge { border: 1.5px solid #0d8a72; color: #0d8a72; font-weight: 800; font-size: .82em; line-height: 1.05;
+  text-align: center; padding: 2mm 3mm; border-radius: 4px; white-space: nowrap; }
+.uc2-rule { height: 1.5px; background: #0d8a72; margin: 2.5mm 0; opacity: .5; }
+.uc2-val { font-size: .78em; color: #555; margin-bottom: 2mm; }
+
+/* ── Veterinária (oficial) ───────────────────────────────────────────────── */
+.m-vet .vet-topo { display: flex; justify-content: space-between; align-items: center; gap: 3mm;
+  border-bottom: 1.5px solid #333; padding-bottom: 2mm; margin-bottom: 3mm; }
+.m-vet .vet-tit .t1 { font-weight: 800; letter-spacing: .5px; font-size: 1em; }
+.m-vet .vet-tit .t2 { font-size: .8em; color: #555; }
+.m-vet .vet-vias { font-size: .72em; text-align: right; color: #333; }
+.m-vet .vet-animal { padding: 1mm 0; }
+.m-vet .presc-min { min-height: 40mm; }
+.vet2-badge { border: 1.5px solid #7a5b13; color: #7a5b13; font-weight: 800; font-size: .8em; line-height: 1.05;
+  text-align: center; padding: 2mm 3mm; border-radius: 4px; white-space: nowrap; }
+.m-vet2 .uc2-rule { background: #7a5b13; }
+
+/* ── Odontológica ────────────────────────────────────────────────────────── */
+.m-odo .odo-topo { display: flex; align-items: center; gap: 3mm; border-bottom: 1.5px solid #333;
+  padding-bottom: 2mm; margin-bottom: 3mm; }
+.m-odo .odo-mark { font-size: 1.6em; color: #0d8a72; }
+.m-odo .odo-tit .t1 { font-weight: 800; letter-spacing: .5px; }
+.m-odo .odo-tit .t2 { font-size: .8em; color: #555; }
+.m-odo .presc-min { min-height: 45mm; }
+.odo2-badge { font-size: 1.6em; color: #0d8a72; border: 1.5px solid #0d8a72; border-radius: 50%;
+  width: 12mm; height: 12mm; display: flex; align-items: center; justify-content: center; }
+
+/* ── Ajustes de impressão ────────────────────────────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+  #print-root, #print-root * { visibility: visible; }
+  #print-root { position: absolute; inset: 0; }
+  .a4 { box-shadow: none; margin: 0; }
+  .a4-land { box-shadow: none; margin: 0; }
+  .dup-divider { display: none !important; }
+  @page { size: A4 portrait; margin: 0; }
+}
