@@ -98,6 +98,8 @@
         </div>
       </aside>
 
+      <div class="wb-resizer" data-resize="rail"></div>
+
       <!-- Formulário -->
       <section class="panel form-col">
         <div class="section">
@@ -150,6 +152,8 @@
       </section>
 
       <!-- Pré-visualização -->
+      <div class="wb-resizer" data-resize="preview"></div>
+
       <section class="preview-col">
         <div class="preview-toolbar">
           <button class="btn" id="btn-print">🖶 Imprimir</button>
@@ -165,10 +169,18 @@
         <div class="edit-bar" id="edit-bar" hidden></div>
         <div class="req-warn" id="req-warn" hidden></div>
         <div class="preview-stage">
-          <div class="a4-scaler" id="a4-scaler"><!-- folha A4 --></div>
+          <div class="a4-scaler-wrap"><div class="a4-scaler" id="a4-scaler"><!-- folha A4 --></div></div>
         </div>
         <div class="fmt-drawer" id="fmt-drawer"><!-- controles de formatação --></div>
       </section>
+
+      <!-- Ícone flutuante: receitas já criadas (histórico) -->
+      <button class="hist-fab" id="hist-fab" title="Receitas criadas">🗒<span class="hist-fab-badge" id="hist-fab-badge">0</span></button>
+      <div class="hist-panel" id="hist-panel" hidden>
+        <div class="hist-panel-head"><span>Receitas criadas</span>
+          <button class="btn ghost" id="hist-panel-close" style="padding:2px 9px">✕</button></div>
+        <div class="hist-panel-list" id="hist-panel-list"></div>
+      </div>
 
     </div>
   </div>
@@ -415,7 +427,7 @@ Dr. Bruno Lima;67890;SP</pre>
         </div>
       </div>
       <div class="dup-preview">
-        <div class="dup-stage"><div id="dup-scaler"></div></div>
+        <div class="dup-stage"><div class="dup-scaler-wrap"><div id="dup-scaler"></div></div></div>
       </div>
     </div>
   </div>

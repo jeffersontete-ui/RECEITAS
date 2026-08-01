@@ -261,9 +261,21 @@
     const sheet = buildSheet();
     scaler.appendChild(sheet);
     scaler.style.transform = `scale(${state.zoom})`;
+    sizeScalerWrap(scaler, sheet);
     if (state.editMode) enableSheetEditing(sheet);
     renderReqWarn();
     renderEditBar();
+  }
+
+  // Reserva no wrapper o tamanho JÁ escalado (transform:scale não encolhe a caixa,
+  // então sem isto a folha "vaza" e é cortada).
+  function sizeScalerWrap(scaler, sheet) {
+    const wrap = scaler.parentElement;
+    if (!wrap || !wrap.classList.contains("a4-scaler-wrap")) return;
+    // A4 retrato ≈ 794 x 1123 px; mede o real para cobrir folhas mais altas
+    const h = sheet.offsetHeight || 1123, w = sheet.offsetWidth || 794;
+    wrap.style.width = Math.round(w * state.zoom) + "px";
+    wrap.style.height = Math.round(h * state.zoom) + "px";
   }
 
   // Torna a folha editável direto na prévia; captura os ajustes como override.
@@ -276,19 +288,6 @@
       clearTimeout(timer);
       timer = setTimeout(() => captureOverride(sheet), 300);
     });
-  }
-
-  function captureOverride(sheet) {
-    const model = window.Models.byId(state.activeModelId);
-    if (!model) return;
-    const clone = sheet.cloneNode(true);
-    clone.removeAttribute("contenteditable");
-    clone.classList.remove("editing");
-    clone.querySelectorAll("[contenteditable]").forEach(el => el.removeAttribute("contenteditable"));
-    const html = clone.innerHTML;
-    state.overrides[model.id] = html;
-    window.Store.setOverride(model.id, html);
-    renderEditBar();
   }
 
   function renderReqWarn() {
@@ -310,12 +309,31 @@
       btn.classList.toggle("primary", state.editMode);
       btn.textContent = state.editMode ? "✓ Concluir edição" : "✎ Editar na folha";
     }
-    if (!state.editMode) {
+    if (state.editMode) {
+      // edição fica confortável em tamanho legível: guarda o zoom e aumenta
+      state._zoomBeforeEdit = state.zoom;
+      if (state.zoom < 0.9) { state.zoom = 0.95; $("#zoom").value = state.zoom; $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%"; }
+    } else {
       // ao sair, captura o estado final da folha atual (se houver)
       const sheet = $("#a4-scaler .a4");
       if (sheet && sheet.getAttribute("contenteditable") === "true") captureOverride(sheet);
+      if (state._zoomBeforeEdit != null) { state.zoom = state._zoomBeforeEdit; $("#zoom").value = state.zoom; $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%"; }
     }
     renderPreview();
+  }
+
+  function captureOverride(sheet) {
+    const model = window.Models.byId(state.activeModelId);
+    if (!model) return;
+    const clone = sheet.cloneNode(true);
+    clone.removeAttribute("contenteditable");
+    clone.classList.remove("editing");
+    clone.querySelectorAll("[contenteditable]").forEach(el => el.removeAttribute("contenteditable"));
+    const html = clone.innerHTML.trim();
+    if (!html || html.length < 20) return;   // evita salvar folha vazia por engano
+    state.overrides[model.id] = html;
+    window.Store.setOverride(model.id, html);
+    renderEditBar();
   }
 
   function renderEditBar() {
@@ -450,6 +468,7 @@
 
   /* ── Histórico de receitas emitidas ────────────────────────────────────── */
   function renderHistory() {
+    if (typeof updateHistFab === "function") updateHistFab();
     const host = $("#hist-list");
     if (!host) return;
     const hist = window.Store.listHistory();
@@ -564,6 +583,95 @@
     }
   }
 
+  /* ── Painel flutuante: receitas criadas (histórico) ────────────────────── */
+  function setupHistoryPanel() {
+    const fab = $("#hist-fab"), panel = $("#hist-panel"), close = $("#hist-panel-close");
+    if (!fab || !panel) return;
+    fab.addEventListener("click", () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      if (open) renderHistoryPanel();
+    });
+    close?.addEventListener("click", () => { panel.hidden = true; });
+    updateHistFab();
+  }
+
+  function updateHistFab() {
+    const badge = $("#hist-fab-badge");
+    if (badge) {
+      const n = window.Store.listHistory().length;
+      badge.textContent = n;
+      badge.style.display = n ? "" : "none";
+    }
+  }
+
+  function renderHistoryPanel() {
+    const host = $("#hist-panel-list");
+    if (!host) return;
+    const hist = window.Store.listHistory();
+    if (!hist.length) { host.innerHTML = `<div class="dash-empty">Nenhuma receita criada ainda.</div>`; return; }
+    host.innerHTML = hist.slice(0, 40).map(h => {
+      const dt = new Date(h.emittedAt);
+      const quando = isNaN(dt) ? "" : dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return `<div class="hp-item" data-hist="${h.id}">
+        <button class="hp-del" data-histdel="${h.id}" title="Excluir">×</button>
+        <div class="hp-pac">${escHtml(h.paciente || "(sem paciente)")}</div>
+        <div class="hp-meta">${escHtml(h.modelName || "")} · ${escHtml(quando)}</div>
+      </div>`;
+    }).join("");
+    $$("#hist-panel-list [data-hist]").forEach(el => el.addEventListener("click", e => {
+      if (e.target.closest("[data-histdel]")) return;
+      loadHistory(el.dataset.hist); $("#hist-panel").hidden = true;
+    }));
+    $$("#hist-panel-list [data-histdel]").forEach(b => b.addEventListener("click", () => {
+      window.Store.deleteHistory(b.dataset.histdel); renderHistoryPanel(); updateHistFab(); renderHistory();
+    }));
+  }
+
+  /* ── Redimensionar as colunas (janelas) ────────────────────────────────── */
+  function setupResizers() {
+    const wb = document.querySelector(".workbench");
+    if (!wb) return;
+    // restaura tamanhos salvos
+    try {
+      const s = JSON.parse(localStorage.getItem("rx_wb_sizes") || "{}");
+      if (s.rail) wb.style.setProperty("--wb-rail", s.rail);
+      if (s.preview) wb.style.setProperty("--wb-preview", s.preview);
+    } catch (_) {}
+
+    $$(".wb-resizer").forEach(rz => {
+      rz.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        const which = rz.dataset.resize;
+        const rect = wb.getBoundingClientRect();
+        document.body.classList.add("wb-resizing");
+        const move = ev => {
+          if (which === "rail") {
+            const px = Math.min(360, Math.max(170, ev.clientX - rect.left));
+            wb.style.setProperty("--wb-rail", px + "px");
+          } else {
+            const pct = Math.min(70, Math.max(24, ((rect.right - ev.clientX) / rect.width) * 100));
+            wb.style.setProperty("--wb-preview", pct + "%");
+          }
+          if (state.zoom) renderPreview();
+        };
+        const up = () => {
+          document.body.classList.remove("wb-resizing");
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          try {
+            localStorage.setItem("rx_wb_sizes", JSON.stringify({
+              rail: wb.style.getPropertyValue("--wb-rail"),
+              preview: wb.style.getPropertyValue("--wb-preview"),
+            }));
+          } catch (_) {}
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      });
+    });
+  }
+
   function setupDashboard() {
     $$("#view-inicio [data-goto]").forEach(b =>
       b.addEventListener("click", () => switchTab(b.dataset.goto)));
@@ -645,6 +753,7 @@
     }
 
     function applyImport(f) {
+      switchTab("receitas");
       const d = state.data;
       if (f.paciente) d.paciente_nome = f.paciente;
       if (f.medico)   d.medico_nome = f.medico;
@@ -654,8 +763,15 @@
       if (f.itens.length) {
         d.itens = f.itens.map(i => ({ nome: i.nome, quantidade: i.quantidade || "", posologia: i.posologia || "" }));
       }
-      renderForm(); renderPreview();
-      switchTab("receitas");
+      // se o modelo ativo está em edição livre, o formulário não afeta a folha:
+      // desfaz o override para que os dados importados apareçam.
+      const model = window.Models.byId(state.activeModelId);
+      if (model && state.overrides[model.id]) {
+        delete state.overrides[model.id];
+        window.Store.clearOverride(model.id);
+        if (state.editMode) toggleEditMode();
+      }
+      renderForm(); renderPreview(); renderReqWarn();
       toast("Formulário preenchido a partir da importação.");
     }
 
@@ -984,6 +1100,8 @@
     setupBackup();
     setupDashboard();
     renderDashboard();
+    setupResizers();
+    setupHistoryPanel();
     loadDatalists();
     $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%";
   }

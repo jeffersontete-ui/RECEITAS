@@ -149,12 +149,20 @@
     return land;
   }
 
+  // A4 paisagem: 297mm x 210mm ≈ 1123 x 794 px (a 96dpi)
+  const LAND_W = 1123, LAND_H = 794;
   function renderPreview() {
     const sc = $("#dup-scaler");
     if (!sc) return;
     sc.innerHTML = "";
     sc.appendChild(buildLandscape());
     sc.style.transform = `scale(${D.zoom})`;
+    // reserva o tamanho JÁ escalado no wrapper, senão a folha (1123px) vaza
+    const wrap = sc.parentElement;
+    if (wrap && wrap.classList.contains("dup-scaler-wrap")) {
+      wrap.style.width = Math.round(LAND_W * D.zoom) + "px";
+      wrap.style.height = Math.round(LAND_H * D.zoom) + "px";
+    }
     const zv = $("#dup-zoom-v");
     if (zv) zv.textContent = Math.round(D.zoom * 100) + "%";
   }
