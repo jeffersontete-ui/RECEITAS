@@ -20,7 +20,7 @@
   ];
 
   const state = {
-    tab: "receitas",
+    tab: "inicio",
     activeModelId: null,
     data: {
       medico_nome: "", medico_crm: "", medico_uf: "", medico_especialidade: "",
@@ -32,6 +32,9 @@
     },
     fmt: window.FMT.defaults(),
     zoom: 0.62,
+    carimbo: { modo: "auto", url: "", assinaturaUrl: "" },
+    editMode: false,
+    overrides: {},
   };
 
   /* ── Utilidades ────────────────────────────────────────────────────────── */
@@ -111,12 +114,18 @@
   }
 
   function selectModel(id) {
+    // se estiver editando na folha, salva a edição atual antes de trocar
+    if (state.editMode) {
+      const sheet = $("#a4-scaler .a4");
+      if (sheet && sheet.getAttribute("contenteditable") === "true") captureOverride(sheet);
+    }
     state.activeModelId = id;
     // carrega formatação salva desse modelo (se houver)
     const saved = window.Store.loadFmt(id);
     state.fmt = saved ? Object.assign(window.FMT.defaults(), saved) : window.FMT.defaults();
     renderRail(); renderPreview(); renderFmtDrawer();
     renderRenovavelField();
+    renderAnimalField();
   }
 
   /* ── Formulário ────────────────────────────────────────────────────────── */
@@ -141,8 +150,18 @@
     bindText("#i-pac-bairro", "paciente_bairro", d);
     bindText("#i-cidade", "cidade", d);
     bindText("#i-data", "data_emissao", d);
+    bindText("#i-animal-esp", "animal_especie", d);
+    bindText("#i-animal-qtd", "animal_qtd", d);
     renderItens();
     renderRenovavelField();
+    renderAnimalField();
+  }
+
+  function renderAnimalField() {
+    const wrap = $("#animal-field");
+    if (!wrap) return;
+    const isVet = /^vet_/.test(state.activeModelId || "");
+    wrap.style.display = isVet ? "grid" : "none";
   }
 
   function renderRenovavelField() {
@@ -206,12 +225,32 @@
   });
 
   /* ── Pré-visualização ──────────────────────────────────────────────────── */
-  function buildSheet() {
+  function genCode() {
+    const p = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+    return p() + "-" + p();
+  }
+
+  function buildSheet(forEmit) {
     const model = window.Models.byId(state.activeModelId);
     const a4 = document.createElement("div");
     if (!model) { a4.className = "a4"; a4.innerHTML = "<p style='color:#888'>Nenhum modelo selecionado.</p>"; return a4; }
+    // carimbo (auto ou imagem) + assinatura opcional
+    state.data.carimbo_modo = state.carimbo.modo;
+    state.data.carimbo_url = state.carimbo.url;
+    state.data.assinatura_url = state.carimbo.assinaturaUrl || "";
+    // numeração sequencial: preview mostra o próximo nº; emissão consome-o
+    state.data.numero_sequencial = model.seq
+      ? (forEmit ? window.Store.nextSeq(model.seq) : window.Store.peekSeq(model.seq)) : "";
+    // código de acesso (só modelo oficial)
+    state.data.codigo_acesso = model.id === "ce_oficial" ? (forEmit ? genCode() : "XXXX-XXXX") : "";
     a4.className = "a4 " + model.cls;
-    a4.innerHTML = model.render(state.data);
+    const ov = state.overrides[model.id];
+    if (ov) {
+      // receita em edição livre: usa o HTML editado (mantém margens/fonte ajustáveis)
+      a4.innerHTML = ov;
+    } else {
+      a4.innerHTML = model.render(state.data);
+    }
     window.FMT.apply(a4, state.fmt, !!state.data.medico_nome.trim());
     return a4;
   }
@@ -219,8 +258,94 @@
   function renderPreview() {
     const scaler = $("#a4-scaler");
     scaler.innerHTML = "";
-    scaler.appendChild(buildSheet());
+    const sheet = buildSheet();
+    scaler.appendChild(sheet);
     scaler.style.transform = `scale(${state.zoom})`;
+    if (state.editMode) enableSheetEditing(sheet);
+    renderReqWarn();
+    renderEditBar();
+  }
+
+  // Torna a folha editável direto na prévia; captura os ajustes como override.
+  function enableSheetEditing(sheet) {
+    sheet.setAttribute("contenteditable", "true");
+    sheet.spellcheck = false;
+    sheet.classList.add("editing");
+    let timer = null;
+    sheet.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => captureOverride(sheet), 300);
+    });
+  }
+
+  function captureOverride(sheet) {
+    const model = window.Models.byId(state.activeModelId);
+    if (!model) return;
+    const clone = sheet.cloneNode(true);
+    clone.removeAttribute("contenteditable");
+    clone.classList.remove("editing");
+    clone.querySelectorAll("[contenteditable]").forEach(el => el.removeAttribute("contenteditable"));
+    const html = clone.innerHTML;
+    state.overrides[model.id] = html;
+    window.Store.setOverride(model.id, html);
+    renderEditBar();
+  }
+
+  function renderReqWarn() {
+    const box = $("#req-warn");
+    if (!box) return;
+    const model = window.Models.byId(state.activeModelId);
+    const miss = window.Models.missingRequired(model, state.data);
+    if (!miss.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = "⚠ Campos obrigatórios para <b>" + escHtml(model ? model.nome : "") +
+      "</b>: " + miss.map(escHtml).join(", ") + ".";
+  }
+
+  /* ── Edição livre na folha ─────────────────────────────────────────────── */
+  function toggleEditMode() {
+    state.editMode = !state.editMode;
+    const btn = $("#btn-edit-sheet");
+    if (btn) {
+      btn.classList.toggle("primary", state.editMode);
+      btn.textContent = state.editMode ? "✓ Concluir edição" : "✎ Editar na folha";
+    }
+    if (!state.editMode) {
+      // ao sair, captura o estado final da folha atual (se houver)
+      const sheet = $("#a4-scaler .a4");
+      if (sheet && sheet.getAttribute("contenteditable") === "true") captureOverride(sheet);
+    }
+    renderPreview();
+  }
+
+  function renderEditBar() {
+    const bar = $("#edit-bar");
+    if (!bar) return;
+    const model = window.Models.byId(state.activeModelId);
+    const hasOverride = model && state.overrides[model.id];
+    if (!state.editMode && !hasOverride) { bar.hidden = true; bar.innerHTML = ""; return; }
+    bar.hidden = false;
+    let html = "";
+    if (state.editMode) {
+      html += '<span class="eb-msg">✎ Modo de edição livre: clique em qualquer texto da folha e digite. ' +
+              'Enquanto estiver editando, as alterações do formulário não afetam esta folha.</span>';
+    } else if (hasOverride) {
+      html += '<span class="eb-msg">Esta receita está <b>editada manualmente</b>. O formulário não altera esta folha.</span>';
+    }
+    if (hasOverride) html += '<button class="btn ghost" id="btn-revert-sheet">↺ Voltar ao modelo</button>';
+    bar.innerHTML = html;
+    const rev = $("#btn-revert-sheet");
+    if (rev) rev.addEventListener("click", revertSheet);
+  }
+
+  function revertSheet() {
+    const model = window.Models.byId(state.activeModelId);
+    if (!model) return;
+    if (!confirm("Descartar a edição manual desta receita e voltar ao modelo padrão?")) return;
+    delete state.overrides[model.id];
+    window.Store.clearOverride(model.id);
+    renderPreview();
+    toast("Receita voltou ao modelo padrão.");
   }
 
   function renderFmtDrawer() {
@@ -230,13 +355,43 @@
   }
 
   /* ── Barra de ações ────────────────────────────────────────────────────── */
-  $("#btn-print")?.addEventListener("click", () => window.Exporter.printSheet(buildSheet()));
+  function confirmIfMissing() {
+    const model = window.Models.byId(state.activeModelId);
+    const miss = window.Models.missingRequired(model, state.data);
+    if (miss.length) {
+      return confirm("Faltam campos obrigatórios para este tipo de receita:\n\n• " +
+        miss.join("\n• ") + "\n\nDeseja emitir mesmo assim?");
+    }
+    return true;
+  }
+
+  function recordHistory() {
+    const model = window.Models.byId(state.activeModelId);
+    window.Store.addHistory({
+      modelId: state.activeModelId,
+      modelName: model ? model.nome : state.activeModelId,
+      paciente: state.data.paciente_nome || "",
+      medico: state.data.medico_nome || "",
+      data: JSON.parse(JSON.stringify(state.data)),
+      fmt: JSON.parse(JSON.stringify(state.fmt)),
+      carimbo: JSON.parse(JSON.stringify(state.carimbo)),
+    });
+    renderHistory();
+  }
+
+  $("#btn-print")?.addEventListener("click", () => {
+    if (!confirmIfMissing()) return;
+    window.Exporter.printSheet(buildSheet(true));
+    recordHistory();
+  });
 
   $("#btn-pdf")?.addEventListener("click", async () => {
+    if (!confirmIfMissing()) return;
     const btn = $("#btn-pdf"); btn.disabled = true; const t = btn.textContent; btn.textContent = "Gerando…";
     try {
-      const ok = await window.Exporter.exportPdf(buildSheet(), fileName());
+      const ok = await window.Exporter.exportPdf(buildSheet(true), fileName());
       toast(ok ? "PDF exportado." : "Abrindo impressão para salvar em PDF.");
+      recordHistory();
     } catch (e) { toast("Não foi possível gerar o PDF: " + e.message, "err"); }
     finally { btn.disabled = false; btn.textContent = t; }
   });
@@ -255,6 +410,8 @@
     toast("Salvo como modelo.");
     renderTemplates();
   });
+
+  $("#btn-edit-sheet")?.addEventListener("click", toggleEditMode);
 
   function fileName() {
     const p = state.data.paciente_nome.trim().replace(/\s+/g, "_") || "receita";
@@ -291,6 +448,135 @@
     toast("Modelo carregado.");
   }
 
+  /* ── Histórico de receitas emitidas ────────────────────────────────────── */
+  function renderHistory() {
+    const host = $("#hist-list");
+    if (!host) return;
+    const hist = window.Store.listHistory();
+    if (!hist.length) { host.innerHTML = `<div class="mc-desc" style="padding:4px 6px">Nenhuma receita emitida ainda.</div>`; return; }
+    host.innerHTML = hist.slice(0, 30).map(h => {
+      const dt = new Date(h.emittedAt);
+      const quando = isNaN(dt) ? "" : dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return `<div class="model-card" data-hist="${h.id}">
+        <button class="mc-del" data-histdel="${h.id}" title="Excluir">×</button>
+        <div class="mc-name">${escHtml(h.paciente || "(sem paciente)")}</div>
+        <div class="mc-desc">${escHtml(h.modelName || "")} · ${escHtml(quando)}</div>
+      </div>`;
+    }).join("");
+    $$("#hist-list [data-hist]").forEach(card => card.addEventListener("click", e => {
+      if (e.target.closest("[data-histdel]")) return;
+      loadHistory(card.dataset.hist);
+    }));
+    $$("#hist-list [data-histdel]").forEach(b => b.addEventListener("click", () => {
+      window.Store.deleteHistory(b.dataset.histdel); renderHistory(); toast("Item removido do histórico.");
+    }));
+  }
+
+  function loadHistory(id) {
+    const h = window.Store.getHistory(id);
+    if (!h) return;
+    state.data = Object.assign(blankLikeData(), JSON.parse(JSON.stringify(h.data)));
+    if (!window.Store.isHidden(h.modelId)) state.activeModelId = h.modelId;
+    if (h.fmt) state.fmt = Object.assign(window.FMT.defaults(), h.fmt);
+    if (h.carimbo) state.carimbo = Object.assign({ modo: "auto", url: "", assinaturaUrl: "" }, h.carimbo);
+    renderForm(); renderRail(); renderPreview(); renderFmtDrawer();
+    toast("Receita reaberta do histórico. Você pode editar e reimprimir.");
+  }
+
+  function blankLikeData() {
+    return {
+      medico_nome: "", medico_crm: "", medico_uf: "", medico_especialidade: "",
+      medico_rqe: "", medico_endereco: "", medico_telefone: "",
+      paciente_nome: "", paciente_endereco: "", paciente_bairro: "",
+      cidade: "", data_emissao: new Date().toISOString().slice(0, 10),
+      validade_meses: 6, itens: [{ nome: "", quantidade: "", posologia: "" }],
+    };
+  }
+
+  /* ── Dashboard (Início) ────────────────────────────────────────────────── */
+  function countListItems() {
+    let n = 0;
+    ["dl-medicos", "dl-medicamentos", "dl-pacientes"].forEach(id => {
+      const dl = document.getElementById(id);
+      if (dl && dl.children.length) n++;
+    });
+    return n;
+  }
+
+  function mostUsedModel(hist) {
+    if (!hist.length) return "—";
+    const count = {};
+    hist.forEach(h => { count[h.modelId] = (count[h.modelId] || 0) + 1; });
+    let best = null, bestN = 0;
+    Object.keys(count).forEach(k => { if (count[k] > bestN) { bestN = count[k]; best = k; } });
+    const m = window.Models.byId(best);
+    return m ? m.nome : (best || "—");
+  }
+
+  function countToday(hist) {
+    const today = new Date().toDateString();
+    return hist.filter(h => { const d = new Date(h.emittedAt); return !isNaN(d) && d.toDateString() === today; }).length;
+  }
+  function countWeek(hist) {
+    return hist.filter(h => { const t = Date.parse(h.emittedAt); return !isNaN(t) && (Date.now() - t) <= 7 * 86400000; }).length;
+  }
+
+  function renderDashboard() {
+    const hist = window.Store.listHistory();
+    const tpls = window.Store.listTemplates();
+
+    const stats = $("#dash-stats");
+    if (stats) {
+      const cards = [
+        { n: hist.length, l: "receitas emitidas" },
+        { n: countToday(hist), l: "hoje" },
+        { n: countWeek(hist), l: "nos últimos 7 dias" },
+        { n: tpls.length, l: "modelos salvos" },
+        { n: countListItems(), l: "listas carregadas", sub: "de 3" },
+        { n: mostUsedModel(hist), l: "modelo mais usado", wide: true },
+      ];
+      stats.innerHTML = cards.map(c =>
+        `<div class="dash-stat ${c.wide ? "wide" : ""}">
+          <div class="ds-n">${escHtml(String(c.n))}${c.sub ? `<small> ${escHtml(c.sub)}</small>` : ""}</div>
+          <div class="ds-l">${escHtml(c.l)}</div>
+        </div>`).join("");
+    }
+
+    const recent = $("#dash-recent");
+    const clr = $("#dash-clear-hist");
+    if (clr) clr.style.display = hist.length ? "" : "none";
+    if (recent) {
+      if (!hist.length) {
+        recent.innerHTML = `<div class="dash-empty">Nenhuma receita emitida ainda. Clique em "Nova receita" para começar.</div>`;
+      } else {
+        recent.innerHTML = hist.slice(0, 6).map(h => {
+          const dt = new Date(h.emittedAt);
+          const quando = isNaN(dt) ? "" : dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+          return `<button class="dash-rec" data-hist="${h.id}">
+            <span class="dr-pac">${escHtml(h.paciente || "(sem paciente)")}</span>
+            <span class="dr-meta">${escHtml(h.modelName || "")} · ${escHtml(quando)}</span>
+          </button>`;
+        }).join("");
+        $$("#dash-recent [data-hist]").forEach(b => b.addEventListener("click", () => {
+          loadHistory(b.dataset.hist); switchTab("receitas");
+        }));
+      }
+    }
+  }
+
+  function setupDashboard() {
+    $$("#view-inicio [data-goto]").forEach(b =>
+      b.addEventListener("click", () => switchTab(b.dataset.goto)));
+    $("#dash-clear-hist")?.addEventListener("click", () => {
+      if (!window.Store.listHistory().length) { toast("O histórico já está vazio."); return; }
+      if (!confirm("Apagar todo o histórico de receitas emitidas? Esta ação não pode ser desfeita.")) return;
+      window.Store.clearHistory();
+      renderDashboard();
+      renderHistory();
+      toast("Histórico apagado.");
+    });
+  }
+
   /* ── Zoom ──────────────────────────────────────────────────────────────── */
   $("#zoom")?.addEventListener("input", e => {
     state.zoom = parseFloat(e.target.value);
@@ -304,7 +590,14 @@
     state.tab = tab;
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
     $("#view-receitas").classList.toggle("hidden", tab !== "receitas");
+    $("#view-inicio").classList.toggle("hidden", tab !== "inicio");
+    if (tab === "inicio") renderDashboard();
     $("#view-importar").classList.toggle("hidden", tab !== "importar");
+    $("#view-listas").classList.toggle("hidden", tab !== "listas");
+    $("#view-custom").classList.toggle("hidden", tab !== "custom");
+    $("#view-dupla").classList.toggle("hidden", tab !== "dupla");
+    if (tab === "custom") renderCarimboPreview();
+    if (tab === "dupla" && window.Dupla) { window.Dupla.init(); window.Dupla.refresh(); }
   }
 
   /* ── Importar Receita ──────────────────────────────────────────────────── */
@@ -369,44 +662,328 @@
     $("#raw-toggle").addEventListener("click", () => $("#raw-text").classList.toggle("on"));
   }
 
-  /* ── Autocomplete opcional a partir de CSVs em /data ───────────────────── */
-  async function loadDatalists() {
-    tryCsv("data/medicamentos.csv", "dl-medicamentos", 0);
-    tryCsv("data/medicos.csv", "dl-medicos", 0);
-    tryCsv("data/clientes.csv", "dl-pacientes", 1);
+  /* ── Listas de autocomplete (médicos / medicamentos / clientes) ────────── */
+  const LIST_KIND = {
+    medicos:      { key: "rx_list_medicos",      dl: "dl-medicos",      url: "data/medicos.csv",     heads: ["NOME", "MEDICO", "MÉDICO", "NAME"],                         defCol: 0 },
+    medicamentos: { key: "rx_list_medicamentos", dl: "dl-medicamentos", url: "data/medicamentos.csv", heads: ["NOME", "PRODUTO", "MEDICAMENTO", "DESCRICAO", "DESCRIÇÃO"], defCol: 0 },
+    pacientes:    { key: "rx_list_pacientes",    dl: "dl-pacientes",    url: "data/clientes.csv",     heads: ["CLIENTE", "PACIENTE", "NOME", "NAME"],                     defCol: 1 },
+  };
+
+  // Divide uma linha de CSV respeitando aspas.
+  function splitCsvLine(line, delim) {
+    const out = []; let cur = "", q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (q) {
+        if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+        else cur += ch;
+      } else {
+        if (ch === '"') q = true;
+        else if (ch === delim) { out.push(cur); cur = ""; }
+        else cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
   }
-  async function tryCsv(url, datalistId, col) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) return;
-      const txt = await r.text();
-      const dl = document.getElementById(datalistId);
-      if (!dl) return;
-      const seen = new Set();
-      txt.split("\n").slice(1).forEach(line => {
-        const parts = line.split(/[;,]/);
-        const val = (parts[col] || "").trim();
-        if (val && val.length > 1 && !/^\d+$/.test(val) && !seen.has(val)) {
-          seen.add(val);
-          const o = document.createElement("option"); o.value = val; dl.appendChild(o);
+
+  function detectDelim(headerLine) {
+    const counts = {
+      ";": (headerLine.match(/;/g) || []).length,
+      ",": (headerLine.match(/,/g) || []).length,
+      "\t": (headerLine.match(/\t/g) || []).length,
+    };
+    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || ";";
+  }
+
+  function pickColumn(headers, kind) {
+    const H = headers.map(h => h.trim().toUpperCase());
+    for (const w of LIST_KIND[kind].heads) { const i = H.indexOf(w); if (i >= 0) return i; }
+    return Math.min(LIST_KIND[kind].defCol, Math.max(0, headers.length - 1));
+  }
+
+  // Extrai a lista de nomes de um texto CSV.
+  function parseCsvNames(text, kind) {
+    const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim().length);
+    if (!lines.length) return [];
+    const delim = detectDelim(lines[0]);
+    const headers = splitCsvLine(lines[0], delim);
+    const col = pickColumn(headers, kind);
+    const out = [], seen = new Set();
+    for (let i = 1; i < lines.length; i++) {
+      const parts = splitCsvLine(lines[i], delim);
+      let v = (parts[col] || "").trim().replace(/^"|"$/g, "");
+      const low = v.toLowerCase();
+      if (v && v.length > 1 && !/^\d+$/.test(v) && !seen.has(low)) {
+        seen.add(low); out.push(v);
+      }
+    }
+    return out;
+  }
+
+  // Lê o arquivo tentando UTF-8 e caindo para Windows-1252 (ANSI) se houver acento quebrado.
+  async function readCsvText(file) {
+    const buf = await file.arrayBuffer();
+    let txt = new TextDecoder("utf-8").decode(buf);
+    if (txt.includes("\uFFFD")) {
+      try { txt = new TextDecoder("windows-1252").decode(buf); } catch (_) { /* mantém utf-8 */ }
+    }
+    return txt;
+  }
+
+  function fillDatalist(id, names) {
+    const dl = document.getElementById(id);
+    if (!dl) return;
+    dl.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    names.forEach(n => { const o = document.createElement("option"); o.value = n; frag.appendChild(o); });
+    dl.appendChild(frag);
+  }
+
+  function saveList(kind, names) { try { localStorage.setItem(LIST_KIND[kind].key, JSON.stringify(names)); } catch (_) {} }
+  function loadSavedList(kind) { try { const s = localStorage.getItem(LIST_KIND[kind].key); return s ? JSON.parse(s) : null; } catch (_) { return null; } }
+  function clearSavedList(kind) { try { localStorage.removeItem(LIST_KIND[kind].key); } catch (_) {} }
+
+  function updateListStatus(kind, count, origin) {
+    const st = document.getElementById("lst-" + kind + "-st");
+    if (!st) return;
+    st.textContent = count ? (count + " itens · " + origin) : "Nenhuma lista carregada";
+    st.classList.toggle("has", !!count);
+  }
+
+  // No boot: usa a lista salva no navegador; se não houver, tenta o CSV do repositório em /data.
+  async function loadDatalists() {
+    for (const kind of Object.keys(LIST_KIND)) {
+      const saved = loadSavedList(kind);
+      if (saved && saved.length) {
+        fillDatalist(LIST_KIND[kind].dl, saved);
+        updateListStatus(kind, saved.length, "salva neste navegador");
+        continue;
+      }
+      try {
+        const r = await fetch(LIST_KIND[kind].url);
+        if (!r.ok) { updateListStatus(kind, 0, ""); continue; }
+        const names = parseCsvNames(await r.text(), kind);
+        fillDatalist(LIST_KIND[kind].dl, names);
+        updateListStatus(kind, names.length, names.length ? "do repositório (data/)" : "");
+      } catch (_) { updateListStatus(kind, 0, ""); }
+    }
+  }
+
+  // Aba "Listas": importação manual de CSV pelo usuário.
+  function setupLists() {
+    for (const kind of Object.keys(LIST_KIND)) {
+      const input = document.getElementById("lst-" + kind);
+      const clear = document.getElementById("lst-" + kind + "-clear");
+      if (input) input.addEventListener("change", async e => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const text = await readCsvText(f);
+          const names = parseCsvNames(text, kind);
+          if (!names.length) { toast("Nenhum nome reconhecido nesse arquivo.", "err"); input.value = ""; return; }
+          fillDatalist(LIST_KIND[kind].dl, names);
+          saveList(kind, names);
+          updateListStatus(kind, names.length, "importada de " + f.name);
+          toast(names.length + " itens importados.");
+        } catch (err) {
+          toast("Falha ao ler o CSV: " + (err && err.message ? err.message : err), "err");
         }
+        input.value = "";
       });
-    } catch (_) { /* sem CSV: segue sem autocomplete */ }
+      if (clear) clear.addEventListener("click", () => {
+        clearSavedList(kind);
+        fillDatalist(LIST_KIND[kind].dl, []);
+        updateListStatus(kind, 0, "");
+        toast("Lista removida deste navegador.");
+      });
+    }
+  }
+
+  /* ── Aba Carimbo & Fontes ──────────────────────────────────────────────── */
+  const CK = { carimbo: "rx_carimbo", fonthead: "rx_fonthead", fontbody: "rx_fontbody" };
+
+  function loadCustomSettings() {
+    try {
+      const c = localStorage.getItem(CK.carimbo);
+      if (c) { const o = JSON.parse(c); state.carimbo.modo = o.modo || "auto"; state.carimbo.url = o.url || ""; state.carimbo.assinaturaUrl = o.assinaturaUrl || ""; }
+    } catch (_) {}
+    try {
+      const fh = localStorage.getItem(CK.fonthead); if (fh) state.fmt.fontHead = fh;
+      const fb = localStorage.getItem(CK.fontbody); if (fb) state.fmt.fontFamily = fb;
+    } catch (_) {}
+  }
+  function saveCarimbo() { try { localStorage.setItem(CK.carimbo, JSON.stringify(state.carimbo)); } catch (_) {} }
+
+  function renderCarimboPreview() {
+    const host = $("#carimbo-preview");
+    if (!host) return;
+    host.innerHTML = window.Stamp.build({
+      medico_nome: state.data.medico_nome || "Dr. Fulano de Tal",
+      medico_crm: state.data.medico_crm || "00000", medico_uf: state.data.medico_uf || "MG",
+      medico_especialidade: state.data.medico_especialidade,
+      medico_rqe: state.data.medico_rqe,
+      carimbo_modo: state.carimbo.modo, carimbo_url: state.carimbo.url,
+      assinatura_url: state.carimbo.assinaturaUrl,
+    });
+  }
+
+  function setupCustom() {
+    // ── Carimbo ──────────────────────────────────────────────────────────
+    const fields = $("#carimbo-img-fields");
+    $$('input[name="carimbo-modo"]').forEach(r => {
+      r.checked = r.value === state.carimbo.modo;
+      r.addEventListener("change", () => {
+        if (!r.checked) return;
+        state.carimbo.modo = r.value;
+        if (fields) fields.hidden = r.value !== "imagem";
+        saveCarimbo(); renderCarimboPreview(); renderPreview();
+      });
+    });
+    if (fields) fields.hidden = state.carimbo.modo !== "imagem";
+    const urlInput = $("#carimbo-url");
+    if (urlInput) urlInput.value = state.carimbo.url && !state.carimbo.url.startsWith("data:") ? state.carimbo.url : "";
+
+    $("#carimbo-url-apply")?.addEventListener("click", () => {
+      const u = ($("#carimbo-url").value || "").trim();
+      if (!u) { toast("Cole o endereço (URL) de uma imagem.", "err"); return; }
+      if (!/^https?:\/\//i.test(u)) { toast("A URL deve começar com http:// ou https://", "err"); return; }
+      state.carimbo.modo = "imagem"; state.carimbo.url = u;
+      $$('input[name="carimbo-modo"]').forEach(r => r.checked = r.value === "imagem");
+      if (fields) fields.hidden = false;
+      saveCarimbo(); renderCarimboPreview(); renderPreview();
+      toast("Carimbo por imagem aplicado.");
+    });
+
+    $("#carimbo-file")?.addEventListener("change", async e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (f.size > 1.5 * 1024 * 1024) { toast("Imagem muito grande (máx. ~1,5 MB).", "err"); e.target.value = ""; return; }
+      try {
+        const dataUrl = await new Promise((res, rej) => {
+          const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f);
+        });
+        state.carimbo.modo = "imagem"; state.carimbo.url = dataUrl;
+        $$('input[name="carimbo-modo"]').forEach(r => r.checked = r.value === "imagem");
+        if (fields) fields.hidden = false;
+        saveCarimbo(); renderCarimboPreview(); renderPreview();
+        toast("Carimbo enviado e aplicado.");
+      } catch (_) { toast("Não foi possível ler a imagem.", "err"); }
+      e.target.value = "";
+    });
+
+    // ── Fontes ───────────────────────────────────────────────────────────
+    const cat = (window.Fonts && window.Fonts.list) || [];
+    const opts = current => cat.map(f =>
+      `<option value="${escAttr(f.css)}" ${f.css === current ? "selected" : ""}>${escHtml(f.label)}</option>`
+    ).join("");
+    const selHead = $("#cf-fonthead"), selBody = $("#cf-fontbody");
+    if (selHead) selHead.innerHTML = opts(state.fmt.fontHead);
+    if (selBody) selBody.innerHTML = opts(state.fmt.fontFamily);
+    const demoHead = $("#cf-demo-head"), demoBody = $("#cf-demo-body");
+    const refreshDemo = () => {
+      if (demoHead) demoHead.style.fontFamily = selHead.value;
+      if (demoBody) demoBody.style.fontFamily = selBody.value;
+    };
+    refreshDemo();
+    selHead?.addEventListener("change", refreshDemo);
+    selBody?.addEventListener("change", refreshDemo);
+
+    $("#cf-fonts-apply")?.addEventListener("click", () => {
+      state.fmt.fontHead = selHead.value;
+      state.fmt.fontFamily = selBody.value;
+      try { localStorage.setItem(CK.fonthead, state.fmt.fontHead); localStorage.setItem(CK.fontbody, state.fmt.fontFamily); } catch (_) {}
+      renderFmtDrawer(); renderPreview();
+      toast("Fontes aplicadas às receitas.");
+    });
+
+    renderCarimboPreview();
+
+    // ── Assinatura (imagem separada) ─────────────────────────────────────
+    const assinUrl = $("#assin-url");
+    if (assinUrl) assinUrl.value = state.carimbo.assinaturaUrl && !state.carimbo.assinaturaUrl.startsWith("data:") ? state.carimbo.assinaturaUrl : "";
+    $("#assin-url-apply")?.addEventListener("click", () => {
+      const u = ($("#assin-url").value || "").trim();
+      if (!/^https?:\/\//i.test(u)) { toast("A URL deve começar com http:// ou https://", "err"); return; }
+      state.carimbo.assinaturaUrl = u; saveCarimbo(); renderCarimboPreview(); renderPreview();
+      toast("Assinatura aplicada.");
+    });
+    $("#assin-file")?.addEventListener("change", async e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (f.size > 1.5 * 1024 * 1024) { toast("Imagem muito grande (máx. ~1,5 MB).", "err"); e.target.value = ""; return; }
+      try {
+        const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+        state.carimbo.assinaturaUrl = dataUrl; saveCarimbo(); renderCarimboPreview(); renderPreview();
+        toast("Assinatura enviada e aplicada.");
+      } catch (_) { toast("Não foi possível ler a imagem.", "err"); }
+      e.target.value = "";
+    });
+    $("#assin-clear")?.addEventListener("click", () => {
+      state.carimbo.assinaturaUrl = ""; if (assinUrl) assinUrl.value = "";
+      saveCarimbo(); renderCarimboPreview(); renderPreview(); toast("Assinatura removida.");
+    });
+  }
+
+  /* ── Backup / restauração ──────────────────────────────────────────────── */
+  function setupBackup() {
+    $("#bkp-export")?.addEventListener("click", () => {
+      const dump = window.Store.exportAll();
+      const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "backup-receitas-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("Backup exportado.");
+    });
+    $("#bkp-import")?.addEventListener("change", async e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const txt = await f.text();
+        const obj = JSON.parse(txt);
+        const replace = confirm("Restaurar backup.\n\nOK = SUBSTITUIR tudo que está neste navegador.\nCancelar = MESCLAR com o que já existe.");
+        const n = window.Store.importAll(obj, replace);
+        toast(n + " itens restaurados. Recarregando…");
+        setTimeout(() => location.reload(), 900);
+      } catch (err) { toast("Backup inválido: " + (err.message || err), "err"); }
+      e.target.value = "";
+    });
   }
 
   /* ── helpers de escape ─────────────────────────────────────────────────── */
   function escHtml(s) { return String(s == null ? "" : s).replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m])); }
   function escAttr(s) { return escHtml(s).replace(/"/g, "&quot;"); }
 
+  /* ── API para a Receita Dupla puxar a receita atual ────────────────────── */
+  window.MainReceita = {
+    get: () => ({
+      modelId: state.activeModelId,
+      data: JSON.parse(JSON.stringify(state.data)),
+      fmt: JSON.parse(JSON.stringify(state.fmt)),
+    }),
+  };
+
   /* ── Boot ──────────────────────────────────────────────────────────────── */
   function boot() {
+    if (window.Fonts) window.Fonts.inject();
+    loadCustomSettings();
+    try { state.overrides = window.Store.allOverrides ? window.Store.allOverrides() : {}; } catch (_) { state.overrides = {}; }
+    if (!state.overrides || typeof state.overrides !== "object") state.overrides = {};
     pickInitialModel();
     renderRail();
     renderForm();
     renderFmtDrawer();
     renderPreview();
     renderTemplates();
+    renderHistory();
     setupImport();
+    setupLists();
+    setupCustom();
+    setupBackup();
+    setupDashboard();
+    renderDashboard();
     loadDatalists();
     $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%";
   }

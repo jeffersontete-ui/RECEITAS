@@ -7,20 +7,26 @@
 (function (global) {
   "use strict";
 
-  function printSheet(a4El) {
+  function printSheet(a4El, opts) {
+    const landscape = !!(opts && opts.landscape);
     let root = document.getElementById("print-root");
     if (!root) { root = document.createElement("div"); root.id = "print-root"; document.body.appendChild(root); }
     root.innerHTML = "";
     root.appendChild(a4El.cloneNode(true));
+    // Orientação da página: injeta uma regra @page temporária.
+    let pageStyle = document.getElementById("print-page-style");
+    if (!pageStyle) { pageStyle = document.createElement("style"); pageStyle.id = "print-page-style"; document.head.appendChild(pageStyle); }
+    pageStyle.textContent = "@page { size: A4 " + (landscape ? "landscape" : "portrait") + "; margin: 0; }";
     window.print();
     setTimeout(() => { root.innerHTML = ""; }, 400);
   }
 
-  async function exportPdf(a4El, fileName) {
+  async function exportPdf(a4El, fileName, opts) {
+    const landscape = !!(opts && opts.landscape);
     const jsPDFCtor = (global.jspdf && global.jspdf.jsPDF) || global.jsPDF;
     if (!global.html2canvas || !jsPDFCtor) {
       // Sem bibliotecas → imprime para "Salvar como PDF"
-      printSheet(a4El);
+      printSheet(a4El, { landscape });
       return false;
     }
     // Clona em tamanho A4 exato, fora da tela, sem escala de zoom
@@ -38,8 +44,8 @@
         windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight,
       });
       const img = canvas.toDataURL("image/jpeg", 0.95);
-      const pdf = new jsPDFCtor({ orientation: "portrait", unit: "mm", format: "a4" });
-      const W = 210, H = 297;
+      const pdf = new jsPDFCtor({ orientation: landscape ? "landscape" : "portrait", unit: "mm", format: "a4" });
+      const W = landscape ? 297 : 210, H = landscape ? 210 : 297;
       const imgH = Math.min(H, (canvas.height * W) / canvas.width);
       pdf.addImage(img, "JPEG", 0, 0, W, imgH);
       pdf.save(fileName || "receita.pdf");

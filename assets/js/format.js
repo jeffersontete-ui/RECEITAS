@@ -7,19 +7,20 @@
 (function (global) {
   "use strict";
 
-  const FONTS = [
-    { v: '"Times New Roman", Georgia, serif', n: "Times New Roman" },
-    { v: "Georgia, serif", n: "Georgia" },
-    { v: '"Garamond", "Times New Roman", serif', n: "Garamond" },
-    { v: "Arial, Helvetica, sans-serif", n: "Arial" },
-    { v: '"Helvetica Neue", Arial, sans-serif', n: "Helvetica" },
-    { v: '"Segoe UI", Roboto, sans-serif', n: "Segoe UI" },
-    { v: '"Courier New", monospace', n: "Courier New" },
-  ];
+  // Catálogo de fontes vem de fonts.js (window.Fonts). Fallback mínimo caso
+  // o script não tenha carregado.
+  function fontCatalog() {
+    return (global.Fonts && global.Fonts.list) || [
+      { id: "times", label: "Times New Roman", css: "'Times New Roman', Georgia, serif" },
+      { id: "arial", label: "Arial", css: "Arial, Helvetica, sans-serif" },
+    ];
+  }
+  const TIMES_CSS = "'Times New Roman', Georgia, serif";
 
   function defaults() {
     return {
-      fontFamily: FONTS[0].v,
+      fontFamily: TIMES_CSS,   // corpo / prescrição
+      fontHead: TIMES_CSS,     // cabeçalho (nome do médico e títulos)
       fontSize: 12,          // pt
       lineHeight: 1.4,
       margins: { t: 14, r: 16, b: 14, l: 16 }, // mm
@@ -35,6 +36,7 @@
   function apply(a4El, fmt, hasStamp) {
     const s = a4El.style;
     s.setProperty("--rx-font", fmt.fontFamily);
+    s.setProperty("--rx-font-head", fmt.fontHead || fmt.fontFamily);
     s.setProperty("--rx-size", fmt.fontSize + "pt");
     s.setProperty("--rx-lh", fmt.lineHeight);
     s.setProperty("--rx-mt", fmt.margins.t + "mm");
@@ -62,16 +64,21 @@
 
   // Constrói os controles no drawer. onChange() é chamado a cada ajuste.
   function buildControls(host, fmt, onChange) {
-    const fontOpts = FONTS.map(f =>
-      `<option value='${f.v}' ${f.v === fmt.fontFamily ? "selected" : ""}>${f.n}</option>`
+    const cat = fontCatalog();
+    const optsFor = current => cat.map(f =>
+      `<option value="${f.css}" ${f.css === current ? "selected" : ""}>${f.label}</option>`
     ).join("");
 
     host.innerHTML = `
       <h3>Formatação do modelo</h3>
       <div class="fmt-grid">
         <label class="field" style="margin:0">
-          <span>Fonte</span>
-          <select id="f-font">${fontOpts}</select>
+          <span>Fonte do cabeçalho (nome do médico)</span>
+          <select id="f-fonthead">${optsFor(fmt.fontHead || fmt.fontFamily)}</select>
+        </label>
+        <label class="field" style="margin:0">
+          <span>Fonte da prescrição / corpo</span>
+          <select id="f-font">${optsFor(fmt.fontFamily)}</select>
         </label>
 
         <div class="slider">
@@ -122,6 +129,7 @@
     const $ = id => host.querySelector(id);
 
     $("#f-font").addEventListener("change", e => { fmt.fontFamily = e.target.value; onChange(); });
+    $("#f-fonthead").addEventListener("change", e => { fmt.fontHead = e.target.value; onChange(); });
 
     $("#f-size").addEventListener("input", e => {
       fmt.fontSize = parseFloat(e.target.value); $("#f-size-v").textContent = fmt.fontSize + "pt"; onChange();
@@ -159,5 +167,5 @@
     });
   }
 
-  global.FMT = { defaults, apply, buildControls, FONTS };
+  global.FMT = { defaults, apply, buildControls };
 })(window);

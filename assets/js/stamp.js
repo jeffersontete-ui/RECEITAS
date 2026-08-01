@@ -25,11 +25,21 @@
   }
 
   // Retorna o HTML do carimbo. dados: {medico_nome, medico_crm, medico_uf,
-  // medico_especialidade, medico_rqe}
+  // medico_especialidade, medico_rqe, carimbo_modo, carimbo_url}
   function buildStamp(dados) {
+    const sig = dados.assinatura_url
+      ? '<img class="sign-img" src="' + esc(dados.assinatura_url) + '" alt="Assinatura" crossorigin="anonymous">'
+      : "";
+
+    // ── Carimbo por imagem (URL da internet ou arquivo enviado) ─────────
+    if (dados.carimbo_modo === "imagem" && dados.carimbo_url) {
+      return sig + '<img class="stamp-img" src="' + esc(dados.carimbo_url) +
+             '" alt="Carimbo do médico" crossorigin="anonymous">';
+    }
+
     const nome = (dados.medico_nome || "").trim();
     if (!nome) {
-      return '<span class="stamp st-under"><span class="s1">&nbsp;</span>' +
+      return sig + '<span class="stamp st-under"><span class="s1">&nbsp;</span>' +
              '<div class="s3">Carimbo do médico</div></span>';
     }
     const uf   = (dados.medico_uf || "").trim();
@@ -44,6 +54,7 @@
     const style = STYLES[crc32(nome + crm + uf) % STYLES.length];
 
     return (
+      sig +
       '<span class="stamp ' + style + '">' +
         '<div class="s1">' + esc(nome.toUpperCase()) + "</div>" +
         '<div class="s2">' + esc(l2) + "</div>" +
