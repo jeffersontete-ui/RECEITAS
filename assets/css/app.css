@@ -404,6 +404,10 @@ body.dup-dragging { cursor: col-resize; user-select: none; }
 .hp-del { position: absolute; top: 6px; right: 6px; border: none; background: transparent;
   color: var(--muted); font-size: 16px; cursor: pointer; border-radius: 5px; }
 .hp-del:hover { background: var(--danger-soft); color: var(--danger); }
+.hp-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.hp-btn { border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted);
+  border-radius: 5px; padding: 3px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.hp-btn:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
 .dup-sidetitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dup-pull { padding: 3px 9px; font-size: 12px; }
 

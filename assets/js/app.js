@@ -617,13 +617,35 @@
         <button class="hp-del" data-histdel="${h.id}" title="Excluir">×</button>
         <div class="hp-pac">${escHtml(h.paciente || "(sem paciente)")}</div>
         <div class="hp-meta">${escHtml(h.modelName || "")} · ${escHtml(quando)}</div>
+        <div class="hp-actions">
+          <button class="hp-btn" data-hpedit="${h.id}">✎ Editar</button>
+          <button class="hp-btn" data-hpdup="${h.id}" data-side="A">▤ Dupla ◧</button>
+          <button class="hp-btn" data-hpdup="${h.id}" data-side="B">▤ Dupla ◨</button>
+        </div>
       </div>`;
     }).join("");
+
+    // reabrir para editar (botão explícito ou clique no cartão)
+    const reopen = id => { loadHistory(id); $("#hist-panel").hidden = true; };
+    $$("#hist-panel-list [data-hpedit]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); reopen(b.dataset.hpedit); }));
     $$("#hist-panel-list [data-hist]").forEach(el => el.addEventListener("click", e => {
-      if (e.target.closest("[data-histdel]")) return;
-      loadHistory(el.dataset.hist); $("#hist-panel").hidden = true;
+      if (e.target.closest("button")) return;
+      reopen(el.dataset.hist);
     }));
-    $$("#hist-panel-list [data-histdel]").forEach(b => b.addEventListener("click", () => {
+
+    // enviar para a Receita Dupla (lado A ou B)
+    $$("#hist-panel-list [data-hpdup]").forEach(b => b.addEventListener("click", e => {
+      e.stopPropagation();
+      const entry = window.Store.getHistory(b.dataset.hpdup);
+      if (!entry) return;
+      if (!window.Dupla) { toast("Receita Dupla indisponível.", "err"); return; }
+      window.Dupla.loadIntoSide(b.dataset.side, entry);
+      switchTab("dupla");
+      $("#hist-panel").hidden = true;
+    }));
+
+    $$("#hist-panel-list [data-histdel]").forEach(b => b.addEventListener("click", e => {
+      e.stopPropagation();
       window.Store.deleteHistory(b.dataset.histdel); renderHistoryPanel(); updateHistFab(); renderHistory();
     }));
   }

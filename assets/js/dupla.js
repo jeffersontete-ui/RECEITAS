@@ -402,9 +402,23 @@
     updateRatioUI();
   }
 
+  // Carrega uma receita (do histórico) num lado específico ("A" ou "B").
+  function loadIntoSide(side, entry) {
+    if (!entry || (side !== "A" && side !== "B")) return;
+    ensureStarted();
+    const s = D.sides[side];
+    if (entry.modelId) s.modelId = entry.modelId;
+    s.data = Object.assign(blankData(), JSON.parse(JSON.stringify(entry.data || {})));
+    if (entry.fmt) s.fmt = Object.assign(global.FMT.defaults(), entry.fmt);
+    renderSideForm(side);
+    renderPreview();
+    toast("Receita trazida para o lado " + (side === "A" ? "esquerdo" : "direito") + ".");
+  }
+
   // Exposto para o app.js chamar ao abrir a aba (recarrega carimbo/fontes/proporção atuais).
   global.Dupla = {
     init: ensureStarted,
     refresh: () => { if (started) { loadRatio(); applyGlobalFonts(); updateRatioUI(); renderPreview(); } },
+    loadIntoSide,
   };
 })(window);
