@@ -25,6 +25,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="inicio"><span class="dot"></span>Início</button>
       <button class="tab" data-tab="receitas"><span class="dot"></span>Receitas</button>
+      <button class="tab" data-tab="folha"><span class="dot"></span>Editar na Folha</button>
       <button class="tab" data-tab="importar"><span class="dot"></span>Importar Receita</button>
       <button class="tab" data-tab="listas"><span class="dot"></span>Listas</button>
       <button class="tab" data-tab="custom"><span class="dot"></span>Carimbo &amp; Fontes</button>
@@ -56,6 +57,9 @@
         <button class="dash-action primary" data-goto="receitas">
           <span class="da-ico">℞</span><span class="da-t">Nova receita</span>
           <span class="da-d">Preencher e imprimir uma receita</span></button>
+        <button class="dash-action" data-goto="folha">
+          <span class="da-ico">✎</span><span class="da-t">Editar na folha</span>
+          <span class="da-d">Digitar direto sobre a folha A4</span></button>
         <button class="dash-action" data-goto="dupla">
           <span class="da-ico">▤</span><span class="da-t">Receita dupla</span>
           <span class="da-d">Duas receitas numa folha A4 paisagem</span></button>
@@ -159,10 +163,12 @@
           <button class="btn" id="btn-print">🖶 Imprimir</button>
           <button class="btn primary" id="btn-pdf">⭳ Exportar PDF</button>
           <button class="btn" id="btn-save-tpl">☆ Salvar como modelo</button>
-          <button class="btn" id="btn-edit-sheet">✎ Editar na folha</button>
+          <button class="btn" id="btn-edit-sheet" title="Abre a aba Editar na Folha">✎ Editar na folha</button>
           <div class="zoom">
-            <span>Zoom</span>
-            <input type="range" id="zoom" min="0.3" max="1" step="0.02" value="0.62">
+            <button class="btn ghost zoom-btn" id="zoom-fit" title="Ajustar à largura — letras maiores, rola na vertical">⤢ Largura</button>
+            <button class="btn ghost zoom-btn" id="zoom-page" title="Ver a folha inteira na tela">⛶ Página</button>
+            <button class="btn ghost zoom-btn" id="zoom-100" title="Tamanho real (100%)">1:1</button>
+            <input type="range" id="zoom" min="0.3" max="2" step="0.02" value="0.62">
             <b id="zoom-v">62%</b>
           </div>
         </div>
@@ -171,7 +177,14 @@
         <div class="preview-stage">
           <div class="a4-scaler-wrap"><div class="a4-scaler" id="a4-scaler"><!-- folha A4 --></div></div>
         </div>
-        <div class="fmt-drawer" id="fmt-drawer"><!-- controles de formatação --></div>
+        <div class="fmt-dock collapsed" id="fmt-dock">
+          <button class="fmt-dock-head" id="fmt-dock-toggle" aria-expanded="false"
+                  title="Mostrar/ocultar os controles de formatação">
+            <span class="fdh-t">⚙ Formatação do modelo</span>
+            <span class="fdh-caret">▾</span>
+          </button>
+          <div class="fmt-drawer" id="fmt-drawer"><!-- controles de formatação --></div>
+        </div>
       </section>
 
       <!-- Ícone flutuante: receitas já criadas (histórico) -->
@@ -181,6 +194,75 @@
           <button class="btn ghost" id="hist-panel-close" style="padding:2px 9px">✕</button></div>
         <div class="hist-panel-list" id="hist-panel-list"></div>
       </div>
+
+    </div>
+  </div>
+
+  <!-- ── VIEW: EDITAR NA FOLHA ──────────────────────────────────────────── -->
+  <div id="view-folha" class="hidden">
+    <div class="folha-wrap">
+
+      <!-- Ferramentas -->
+      <aside class="panel folha-tools">
+        <div class="ft-group">
+          <h4>Receita em edição</h4>
+          <label class="field"><span>Modelo</span>
+            <select id="fo-model"></select></label>
+          <div class="ft-status" id="fo-status"></div>
+        </div>
+
+        <div class="ft-group">
+          <h4>Tamanho na tela</h4>
+          <div class="ft-zoom-row">
+            <button class="btn ghost" id="fo-zoom-out" title="Diminuir">−</button>
+            <input type="range" id="fo-zoom" min="0.4" max="2" step="0.02" value="1">
+            <button class="btn ghost" id="fo-zoom-in" title="Aumentar">＋</button>
+            <b id="fo-zoom-v">100%</b>
+          </div>
+          <div class="ft-btn-row">
+            <button class="btn" id="fo-fit">⤢ Ajustar à largura</button>
+            <button class="btn" id="fo-100">1:1 Tamanho real</button>
+          </div>
+          <p class="ft-note">O zoom muda só a visualização. O tamanho impresso é
+            definido pelo campo <b>Tamanho da fonte</b> abaixo.</p>
+        </div>
+
+        <div class="ft-group">
+          <h4>Tamanho impresso</h4>
+          <div class="slider">
+            <div class="slabel">Tamanho da fonte <b id="fo-size-v">12pt</b></div>
+            <input type="range" id="fo-size" min="8" max="18" step="0.5" value="12">
+          </div>
+          <div class="slider">
+            <div class="slabel">Espaçamento entre linhas <b id="fo-lh-v">1.4</b></div>
+            <input type="range" id="fo-lh" min="1" max="2.2" step="0.05" value="1.4">
+          </div>
+        </div>
+
+        <div class="ft-group">
+          <h4>Ações</h4>
+          <div class="ft-btn-col">
+            <button class="btn primary" id="fo-save">✓ Salvar edição</button>
+            <button class="btn" id="fo-print">🖶 Imprimir</button>
+            <button class="btn" id="fo-pdf">⭳ Exportar PDF</button>
+            <button class="btn danger-btn" id="fo-revert">↺ Voltar ao modelo</button>
+            <button class="btn ghost" id="fo-back">← Voltar ao formulário</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Folha -->
+      <section class="folha-main">
+        <div class="folha-hint">
+          ✎ <b>Modo de edição livre.</b> Clique em qualquer texto da folha e digite.
+          Enquanto a receita estiver editada aqui, o formulário da aba Receitas não altera esta folha.
+        </div>
+        <div class="folha-stage">
+          <div class="a4-scaler-wrap" id="folha-scaler-wrap">
+            <div class="a4-scaler" id="folha-scaler"><!-- folha A4 editável --></div>
+          </div>
+        </div>
+      </section>
 
     </div>
   </div>

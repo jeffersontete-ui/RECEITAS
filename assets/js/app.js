@@ -32,6 +32,9 @@
     },
     fmt: window.FMT.defaults(),
     zoom: 0.62,
+    zoomMode: "width",   // "width" | "page" | "real" | "manual"
+    folhaZoom: 1,        // zoom da aba "Editar na Folha"
+    folhaFit: false,
     carimbo: { modo: "auto", url: "", assinaturaUrl: "" },
     editMode: false,
     overrides: {},
@@ -260,6 +263,13 @@
     scaler.innerHTML = "";
     const sheet = buildSheet();
     scaler.appendChild(sheet);
+    if (state.zoomMode === "width" || state.zoomMode === "page") {
+      const stage = document.querySelector("#view-receitas .preview-stage");
+      state.zoom = computeFit(stage, sheet.offsetWidth || 794,
+        state.zoomMode === "page" ? (sheet.offsetHeight || 1123) : null);
+      const sl = $("#zoom"); if (sl) sl.value = state.zoom;
+      const lb = $("#zoom-v"); if (lb) lb.textContent = Math.round(state.zoom * 100) + "%";
+    }
     scaler.style.transform = `scale(${state.zoom})`;
     sizeScalerWrap(scaler, sheet);
     if (state.editMode) enableSheetEditing(sheet);
@@ -348,7 +358,7 @@
       html += '<span class="eb-msg">✎ Modo de edição livre: clique em qualquer texto da folha e digite. ' +
               'Enquanto estiver editando, as alterações do formulário não afetam esta folha.</span>';
     } else if (hasOverride) {
-      html += '<span class="eb-msg">Esta receita está <b>editada manualmente</b>. O formulário não altera esta folha.</span>';
+      html += '<span class="eb-msg">Esta receita está <b>editada manualmente</b> (aba <b>Editar na Folha</b>). O formulário não altera esta folha.</span>';
     }
     if (hasOverride) html += '<button class="btn ghost" id="btn-revert-sheet">↺ Voltar ao modelo</button>';
     bar.innerHTML = html;
@@ -429,7 +439,167 @@
     renderTemplates();
   });
 
-  $("#btn-edit-sheet")?.addEventListener("click", toggleEditMode);
+  // O botão antigo continua existindo como atalho — agora leva para a aba própria.
+  $("#btn-edit-sheet")?.addEventListener("click", () => switchTab("folha"));
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     ABA "EDITAR NA FOLHA"
+     A folha A4 vira o herói da tela, em tamanho legível, com as ferramentas
+     numa coluna à esquerda. O que for digitado aqui é gravado como override
+     do modelo (mesmo mecanismo de antes) e continua valendo na aba Receitas.
+     ══════════════════════════════════════════════════════════════════════════ */
+  let folhaSaveTimer = null;
+
+  function folhaStage() { return document.querySelector("#view-folha .folha-stage"); }
+
+  function fitFolha() {
+    state.folhaFit = true;
+    const sheet = document.querySelector("#folha-scaler .a4");
+    applyFolhaZoom(computeFit(folhaStage(), sheet ? sheet.offsetWidth : 794));
+  }
+
+  function applyFolhaZoom(z, manual) {
+    state.folhaZoom = Math.max(0.4, Math.min(2, z));
+    if (manual) state.folhaFit = false;
+    const scaler = $("#folha-scaler");
+    if (scaler) {
+      scaler.style.transform = `scale(${state.folhaZoom})`;
+      const sheet = scaler.firstElementChild;
+      if (sheet) sizeScalerWrap(scaler, sheet);
+    }
+    const sl = $("#fo-zoom"); if (sl) sl.value = state.folhaZoom;
+    const lb = $("#fo-zoom-v"); if (lb) lb.textContent = Math.round(state.folhaZoom * 100) + "%";
+    const fb = $("#fo-fit"); if (fb) fb.classList.toggle("primary", !!state.folhaFit);
+  }
+
+  function renderFolhaModelSelect() {
+    const sel = $("#fo-model");
+    if (!sel) return;
+    const list = visibleModels();
+    sel.innerHTML = list.map(m =>
+      `<option value="${escAttr(m.id)}" ${m.id === state.activeModelId ? "selected" : ""}>${escHtml(m.nome)}</option>`
+    ).join("");
+  }
+
+  function renderFolhaStatus() {
+    const box = $("#fo-status");
+    if (!box) return;
+    const model = window.Models.byId(state.activeModelId);
+    const edited = model && state.overrides[model.id];
+    box.classList.toggle("edited", !!edited);
+    box.innerHTML = edited
+      ? "✎ Esta receita está <b>editada manualmente</b>. O formulário da aba Receitas não altera esta folha até você usar “Voltar ao modelo”."
+      : "Esta folha ainda segue o modelo. Assim que você digitar algo aqui, ela passa a ser uma versão manual.";
+  }
+
+  // Monta a folha na aba, já em modo editável.
+  function renderFolha() {
+    const scaler = $("#folha-scaler");
+    if (!scaler) return;
+    scaler.innerHTML = "";
+    const sheet = buildSheet();
+    scaler.appendChild(sheet);
+
+    sheet.setAttribute("contenteditable", "true");
+    sheet.spellcheck = false;
+    sheet.classList.add("editing");
+    sheet.addEventListener("input", () => {
+      clearTimeout(folhaSaveTimer);
+      folhaSaveTimer = setTimeout(() => { captureOverride(sheet); renderFolhaStatus(); }, 400);
+    });
+
+    // Zoom: primeira abertura em tamanho real; depois respeita a escolha do usuário.
+    if (state.folhaFit) fitFolha();
+    else applyFolhaZoom(state.folhaZoom);
+
+    // Se nem em 100% couber na tela, ajusta para caber (evita rolagem horizontal).
+    const stage = folhaStage();
+    if (stage && !state.folhaFit) {
+      const max = computeFit(stage, sheet.offsetWidth || 794);
+      if (max < state.folhaZoom) applyFolhaZoom(max);
+    }
+
+    // Sincroniza os controles de tamanho impresso com a formatação do modelo.
+    const fs = $("#fo-size"), lh = $("#fo-lh");
+    if (fs) { fs.value = state.fmt.fontSize; $("#fo-size-v").textContent = state.fmt.fontSize + "pt"; }
+    if (lh) { lh.value = state.fmt.lineHeight; $("#fo-lh-v").textContent = state.fmt.lineHeight; }
+
+    renderFolhaModelSelect();
+    renderFolhaStatus();
+  }
+
+  function saveFolha() {
+    const sheet = document.querySelector("#folha-scaler .a4");
+    if (sheet) captureOverride(sheet);
+    renderFolhaStatus();
+    renderPreview();
+    toast("Edição da folha salva.");
+  }
+
+  function setupFolha() {
+    $("#fo-zoom")?.addEventListener("input", e => applyFolhaZoom(parseFloat(e.target.value), true));
+    $("#fo-zoom-in")?.addEventListener("click", () => applyFolhaZoom(state.folhaZoom + 0.1, true));
+    $("#fo-zoom-out")?.addEventListener("click", () => applyFolhaZoom(state.folhaZoom - 0.1, true));
+    $("#fo-fit")?.addEventListener("click", fitFolha);
+    $("#fo-100")?.addEventListener("click", () => applyFolhaZoom(1, true));
+
+    $("#fo-size")?.addEventListener("input", e => {
+      state.fmt.fontSize = parseFloat(e.target.value);
+      $("#fo-size-v").textContent = state.fmt.fontSize + "pt";
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) window.FMT.apply(sheet, state.fmt, !!state.data.medico_nome.trim());
+      renderFmtDrawer();
+    });
+    $("#fo-lh")?.addEventListener("input", e => {
+      state.fmt.lineHeight = parseFloat(e.target.value);
+      $("#fo-lh-v").textContent = state.fmt.lineHeight;
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) window.FMT.apply(sheet, state.fmt, !!state.data.medico_nome.trim());
+      renderFmtDrawer();
+    });
+
+    $("#fo-model")?.addEventListener("change", e => {
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) captureOverride(sheet);          // não perde o que já foi digitado
+      selectModel(e.target.value);
+      renderFolha();
+    });
+
+    $("#fo-save")?.addEventListener("click", saveFolha);
+    $("#fo-back")?.addEventListener("click", () => { saveFolha(); switchTab("receitas"); });
+
+    $("#fo-revert")?.addEventListener("click", () => {
+      const model = window.Models.byId(state.activeModelId);
+      if (!model) return;
+      if (!state.overrides[model.id]) { toast("Esta folha já está no modelo padrão."); return; }
+      if (!confirm("Descartar a edição manual desta receita e voltar ao modelo padrão?")) return;
+      delete state.overrides[model.id];
+      window.Store.clearOverride(model.id);
+      renderFolha(); renderPreview();
+      toast("Receita voltou ao modelo padrão.");
+    });
+
+    $("#fo-print")?.addEventListener("click", () => {
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) captureOverride(sheet);
+      if (!confirmIfMissing()) return;
+      window.Exporter.printSheet(buildSheet(true));
+      recordHistory();
+    });
+
+    $("#fo-pdf")?.addEventListener("click", async () => {
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) captureOverride(sheet);
+      if (!confirmIfMissing()) return;
+      const btn = $("#fo-pdf"); btn.disabled = true; const t = btn.textContent; btn.textContent = "Gerando…";
+      try {
+        const ok = await window.Exporter.exportPdf(buildSheet(true), fileName());
+        toast(ok ? "PDF exportado." : "Abrindo impressão para salvar em PDF.");
+        recordHistory();
+      } catch (e) { toast("Não foi possível gerar o PDF: " + e.message, "err"); }
+      finally { btn.disabled = false; btn.textContent = t; }
+    });
+  }
 
   function fileName() {
     const p = state.data.paciente_nome.trim().replace(/\s+/g, "_") || "receita";
@@ -707,20 +877,104 @@
     });
   }
 
-  /* ── Zoom ──────────────────────────────────────────────────────────────── */
+  /* ── Zoom da pré-visualização ──────────────────────────────────────────── */
+  // Calcula o zoom que faz a folha A4 caber na largura útil do palco.
+  // sheetH opcional: quando informado, a folha INTEIRA cabe na tela (sem rolagem).
+  function computeFit(stageEl, sheetW, sheetH) {
+    if (!stageEl) return 0.62;
+    const cs = getComputedStyle(stageEl);
+    const padX = parseFloat(cs.paddingLeft || 0) + parseFloat(cs.paddingRight || 0);
+    const padY = parseFloat(cs.paddingTop || 0) + parseFloat(cs.paddingBottom || 0);
+    const availW = stageEl.clientWidth - padX - 8;   // folga para a barra de rolagem
+    const w = sheetW || 794;                        // A4 retrato a 96dpi ≈ 794px
+    if (!availW || availW <= 0) return 0.62;
+    let z = availW / w;
+    if (sheetH) {
+      const availH = stageEl.clientHeight - padY - 8;
+      if (availH > 0) z = Math.min(z, availH / sheetH);
+    }
+    return Math.max(0.3, Math.min(2, z));
+  }
+
+  function applyZoom(z, opts) {
+    state.zoom = Math.max(0.3, Math.min(2, z));
+    const scaler = $("#a4-scaler");
+    if (scaler) {
+      scaler.style.transform = `scale(${state.zoom})`;
+      const sheet = scaler.firstElementChild;
+      if (sheet) sizeScalerWrap(scaler, sheet);
+    }
+    const sl = $("#zoom"); if (sl) sl.value = state.zoom;
+    const lb = $("#zoom-v"); if (lb) lb.textContent = Math.round(state.zoom * 100) + "%";
+    if (opts && opts.manual) state.zoomMode = "manual";
+    markZoomButtons();
+  }
+
+  function markZoomButtons() {
+    const map = { width: "#zoom-fit", page: "#zoom-page", real: "#zoom-100" };
+    Object.keys(map).forEach(k => {
+      const el = $(map[k]);
+      if (el) el.classList.toggle("primary", state.zoomMode === k);
+    });
+  }
+
+  // modo: "width" (largura — texto maior, rola na vertical)
+  //       "page"  (folha inteira na tela)
+  //       "real"  (100%)
+  function fitPreview(mode) {
+    if (mode) state.zoomMode = mode;
+    const m = state.zoomMode;
+    if (m === "manual") return;
+    if (m === "real") { applyZoom(1); return; }
+    const stage = document.querySelector("#view-receitas .preview-stage");
+    const sheet = document.querySelector("#a4-scaler .a4");
+    const w = sheet ? sheet.offsetWidth : 794;
+    const h = sheet ? sheet.offsetHeight : 1123;
+    applyZoom(computeFit(stage, w, m === "page" ? h : null));
+  }
+
   $("#zoom")?.addEventListener("input", e => {
-    state.zoom = parseFloat(e.target.value);
-    $("#a4-scaler").style.transform = `scale(${state.zoom})`;
-    $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%";
+    applyZoom(parseFloat(e.target.value), { manual: true });
+  });
+  $("#zoom-fit")?.addEventListener("click", () => fitPreview("width"));
+  $("#zoom-page")?.addEventListener("click", () => fitPreview("page"));
+  $("#zoom-100")?.addEventListener("click", () => fitPreview("real"));
+
+  // Redimensionar a janela reajusta a folha (quando em modo "ajustar").
+  let rzTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(rzTimer);
+    rzTimer = setTimeout(() => {
+      if (state.tab === "receitas") fitPreview();
+      if (state.tab === "folha" && state.folhaFit) fitFolha();
+    }, 120);
+  });
+
+  /* ── Gaveta de formatação (recolhível) ─────────────────────────────────── */
+  $("#fmt-dock-toggle")?.addEventListener("click", () => {
+    const dock = $("#fmt-dock");
+    if (!dock) return;
+    const collapsed = dock.classList.toggle("collapsed");
+    $("#fmt-dock-toggle").setAttribute("aria-expanded", String(!collapsed));
+    setTimeout(() => fitPreview(), 20);
   });
 
   /* ── Abas ──────────────────────────────────────────────────────────────── */
   $$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
   function switchTab(tab) {
+    // Saindo da folha: grava o que estiver digitado antes de trocar de aba.
+    if (state.tab === "folha" && tab !== "folha") {
+      const sheet = document.querySelector("#folha-scaler .a4");
+      if (sheet) captureOverride(sheet);
+      renderPreview();
+    }
     state.tab = tab;
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
     $("#view-receitas").classList.toggle("hidden", tab !== "receitas");
     $("#view-inicio").classList.toggle("hidden", tab !== "inicio");
+    $("#view-folha").classList.toggle("hidden", tab !== "folha");
+    if (tab === "folha") renderFolha();
+    if (tab === "receitas") setTimeout(() => fitPreview(), 20);
     if (tab === "inicio") renderDashboard();
     $("#view-importar").classList.toggle("hidden", tab !== "importar");
     $("#view-listas").classList.toggle("hidden", tab !== "listas");
@@ -1124,7 +1378,10 @@
     renderDashboard();
     setupResizers();
     setupHistoryPanel();
+    setupFolha();
     loadDatalists();
+    // Zoom inicial: ajusta à largura disponível em vez de um valor fixo de 62%.
+    requestAnimationFrame(() => { fitPreview("width"); });
     $("#zoom-v").textContent = Math.round(state.zoom * 100) + "%";
   }
   document.addEventListener("DOMContentLoaded", boot);
