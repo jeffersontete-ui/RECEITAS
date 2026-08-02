@@ -1,7 +1,0 @@
-Coloque aqui a arte do banner exportada do Canva com o nome:  hero.png
-
-Enquanto este arquivo não existir, o app mostra um banner desenhado em código
-(mesmo estilo). Assim que você adicionar hero.png, a arte do Canva aparece
-automaticamente na tela inicial.
-
-Tamanho recomendado: ~1600×600 px (proporção larga).
