@@ -7,8 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;550;600;650;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=3">
-  <link rel="stylesheet" href="assets/css/receita.css?v=3">
+  <link rel="stylesheet" href="assets/css/app.css?v=5">
+  <link rel="stylesheet" href="assets/css/receita.css?v=5">
+  <link rel="stylesheet" href="assets/css/carimbos.css?v=5">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0d8a72">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
@@ -404,6 +405,7 @@ Dr. Bruno Lima;67890;SP</pre>
             <div class="cf-radio">
               <label><input type="radio" name="carimbo-modo" value="auto" checked> Automático (gerado do nome + CRM)</label>
               <label><input type="radio" name="carimbo-modo" value="imagem"> Imagem (URL ou arquivo)</label>
+              <label><input type="radio" name="carimbo-modo" value="modelo"> <b>Modelo pronto</b> (galeria de carimbos)</label>
             </div>
 
             <div id="carimbo-img-fields" class="cf-imgfields" hidden>
@@ -417,6 +419,37 @@ Dr. Bruno Lima;67890;SP</pre>
               <p class="cf-hint">Dica: para o carimbo aparecer também no <b>PDF exportado</b>,
                 envie o arquivo (recomendado) ou use uma URL de um site que permita uso externo
                 da imagem (ex.: Imgur, Postimages). Na impressão direta, qualquer URL funciona.</p>
+            </div>
+
+            <div id="carimbo-modelo-fields" class="cf-modelfields" hidden>
+              <div class="cf-sub2">1 · Escolha o modelo do carimbo</div>
+              <div class="cx-gal" id="carimbo-galeria"></div>
+
+              <div class="cf-sub2">2 · Ícone (opcional)</div>
+              <div class="cx-icos" id="carimbo-icones"></div>
+
+              <div class="cf-sub2">3 · Texto do carimbo</div>
+              <p class="cf-hint">Deixe uma linha em branco para o app preencher sozinho com os
+                dados do médico da receita (nome, especialidade, CRM).</p>
+              <label class="field"><span>Linha 1 — nome</span>
+                <input id="cx-l1" placeholder="Dra. Julianna Aparecida Ribeiro"></label>
+              <label class="field"><span>Linha 2 — profissão / especialidade</span>
+                <input id="cx-l2" placeholder="Médica"></label>
+              <label class="field"><span>Linha 3 — registro</span>
+                <input id="cx-l3" placeholder="CRM-SP 000000"></label>
+              <label class="field"><span>Linha 4 — extra (opcional)</span>
+                <input id="cx-l4" placeholder="RQE 0000 · MAPA 0000000 · (14) 99999-9999"></label>
+
+              <div class="cx-escala-row">
+                <span>Tamanho</span>
+                <input type="range" id="cx-escala" min="70" max="160" step="5" value="100">
+                <b id="cx-escala-v">100%</b>
+              </div>
+
+              <div class="cf-actions" style="margin-top:12px">
+                <button class="btn primary" id="cx-aplicar">Aplicar carimbo</button>
+                <button class="btn ghost" id="cx-limpar">Limpar texto</button>
+              </div>
             </div>
 
             <div class="cf-preview">
@@ -482,6 +515,9 @@ Dr. Bruno Lima;67890;SP</pre>
               <button type="button" class="dup-rp" data-r="67">2/3</button>
             </span>
           </div>
+          <label class="dup-fit-chk" title="Reduz a fonte do lado até o conteúdo caber nos 210 mm de altura da folha">
+            <input type="checkbox" id="dup-fit" checked> Encolher para caber na folha
+          </label>
           <div class="dup-tb-spacer"></div>
           <div class="zoom">
             <button class="btn ghost" id="dup-zoom-out">−</button>
@@ -493,6 +529,7 @@ Dr. Bruno Lima;67890;SP</pre>
         </div>
         <p class="dup-hint">Duas receitas diferentes na mesma folha A4 em paisagem. Cada lado é
           independente — modelo, cabeçalho, paciente, medicamentos, fontes, margens e carimbo.</p>
+        <p class="dup-fit-info" id="dup-fit-info" hidden></p>
         <div class="dup-cols">
           <section class="panel dup-side">
             <h3 class="dup-sidetitle">◧ Receita da esquerda
@@ -535,15 +572,16 @@ Dr. Bruno Lima;67890;SP</pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- ── Módulos do app ─────────────────────────────────────────────────── -->
-  <script src="assets/js/fonts.js?v=3"></script>
-  <script src="assets/js/stamp.js?v=3"></script>
-  <script src="assets/js/models.js?v=3"></script>
-  <script src="assets/js/format.js?v=3"></script>
-  <script src="assets/js/templates.js?v=3"></script>
-  <script src="assets/js/importer.js?v=3"></script>
-  <script src="assets/js/export.js?v=3"></script>
-  <script src="assets/js/dupla.js?v=3"></script>
-  <script src="assets/js/app.js?v=3"></script>
+  <script src="assets/js/fonts.js?v=5"></script>
+  <script src="assets/js/carimbos.js?v=5"></script>
+  <script src="assets/js/stamp.js?v=5"></script>
+  <script src="assets/js/models.js?v=5"></script>
+  <script src="assets/js/format.js?v=5"></script>
+  <script src="assets/js/templates.js?v=5"></script>
+  <script src="assets/js/importer.js?v=5"></script>
+  <script src="assets/js/export.js?v=5"></script>
+  <script src="assets/js/dupla.js?v=5"></script>
+  <script src="assets/js/app.js?v=5"></script>
   <script>
     // PWA: registra o service worker (funciona em HTTPS, como o GitHub Pages).
     if ("serviceWorker" in navigator) {

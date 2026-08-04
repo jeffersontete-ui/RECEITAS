@@ -17,8 +17,13 @@
     let pageStyle = document.getElementById("print-page-style");
     if (!pageStyle) { pageStyle = document.createElement("style"); pageStyle.id = "print-page-style"; document.head.appendChild(pageStyle); }
     pageStyle.textContent = "@page { size: A4 " + (landscape ? "landscape" : "portrait") + "; margin: 0; }";
+    // Marca o documento para o CSS de impressão travar a folha em 1 página.
+    document.documentElement.classList.toggle("print-land", landscape);
     window.print();
-    setTimeout(() => { root.innerHTML = ""; }, 400);
+    setTimeout(() => {
+      root.innerHTML = "";
+      document.documentElement.classList.remove("print-land");
+    }, 400);
   }
 
   async function exportPdf(a4El, fileName, opts) {
@@ -46,8 +51,11 @@
       const img = canvas.toDataURL("image/jpeg", 0.95);
       const pdf = new jsPDFCtor({ orientation: landscape ? "landscape" : "portrait", unit: "mm", format: "a4" });
       const W = landscape ? 297 : 210, H = landscape ? 210 : 297;
-      const imgH = Math.min(H, (canvas.height * W) / canvas.width);
-      pdf.addImage(img, "JPEG", 0, 0, W, imgH);
+      // Encaixa a folha inteira dentro da página, sem cortar nem estourar.
+      let imgW = W, imgH = (canvas.height * W) / canvas.width;
+      if (imgH > H) { imgH = H; imgW = (canvas.width * H) / canvas.height; }
+      const offX = (W - imgW) / 2, offY = 0;
+      pdf.addImage(img, "JPEG", offX, offY, imgW, imgH);
       pdf.save(fileName || "receita.pdf");
       return true;
     } finally {

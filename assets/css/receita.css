@@ -193,10 +193,13 @@ ol.rx-list .pos { display: block; font-size: .9em; color: #222; margin-top: 1mm;
 
 /* ── Folha A4 em PAISAGEM com duas receitas (Receita Dupla) ──────────────── */
 .a4-land {
-  width: 297mm; min-height: 210mm; height: 210mm;
+  width: 297mm; height: 210mm;
+  min-width: 297mm; max-width: 297mm;
+  min-height: 210mm; max-height: 210mm;
   background: #fff; color: #111;
   box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 20px 50px rgba(20,33,31,.14);
-  display: flex; overflow: hidden; position: relative;
+  display: flex; flex-wrap: nowrap; overflow: hidden; position: relative;
+  box-sizing: border-box;
 }
 /* Alça divisória arrastável (só na tela; escondida ao imprimir) */
 .dup-divider {
@@ -225,7 +228,8 @@ body.dup-dragging .dup-divider-grip { opacity: 1; }
   --rx-size: 11pt; --rx-lh: 1.35;
   --rx-mt: 10mm; --rx-mr: 10mm; --rx-mb: 10mm; --rx-ml: 10mm;
   --stamp-h: 20mm; --stamp-scale: 1; --sig-gap: 8mm;
-  width: 50%; height: 210mm; box-sizing: border-box;
+  width: 50%; height: 210mm; max-height: 210mm;
+  flex: 0 0 auto; min-width: 0; box-sizing: border-box;
   padding: var(--rx-mt) var(--rx-mr) var(--rx-mb) var(--rx-ml);
   font-family: var(--rx-font);
   font-size: var(--rx-size);
@@ -283,4 +287,27 @@ body.dup-dragging .dup-divider-grip { opacity: 1; }
   .a4-land { box-shadow: none; margin: 0; }
   .dup-divider { display: none !important; }
   @page { size: A4 portrait; margin: 0; }
+
+  /* ── A4 PAISAGEM (Receita Dupla) — uma folha só, sem página em branco ──
+     O meio milímetro a menos evita o arredondamento que joga a folha
+     para uma segunda página em alguns navegadores.                     */
+  html.print-land, html.print-land body {
+    width: 297mm; height: 210mm; margin: 0; padding: 0; overflow: hidden;
+  }
+  html.print-land #print-root { position: absolute; inset: 0; overflow: hidden; }
+  html.print-land .a4-land,
+  #print-root .a4-land {
+    width: 296.5mm; min-width: 296.5mm; max-width: 296.5mm;
+    height: 209.5mm; min-height: 209.5mm; max-height: 209.5mm;
+    overflow: hidden;
+    break-inside: avoid; page-break-inside: avoid;
+    break-after: avoid;  page-break-after: avoid;
+  }
+  html.print-land .a4-land .rx-half,
+  #print-root .a4-land .rx-half {
+    height: 209.5mm; max-height: 209.5mm; overflow: hidden;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  /* nada depois da folha pode gerar página nova */
+  html.print-land #print-root > *:last-child { break-after: avoid; page-break-after: avoid; }
 }

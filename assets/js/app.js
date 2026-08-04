@@ -35,7 +35,11 @@
     zoomMode: "width",   // "width" | "page" | "real" | "manual"
     folhaZoom: 1,        // zoom da aba "Editar na Folha"
     folhaFit: false,
-    carimbo: { modo: "auto", url: "", assinaturaUrl: "" },
+    carimbo: {
+      modo: "auto", url: "", assinaturaUrl: "",
+      modelo: "mod01", icone: "", escala: 1,
+      texto: { l1: "", l2: "", l3: "", l4: "" },
+    },
     editMode: false,
     overrides: {},
   };
@@ -241,6 +245,10 @@
     state.data.carimbo_modo = state.carimbo.modo;
     state.data.carimbo_url = state.carimbo.url;
     state.data.assinatura_url = state.carimbo.assinaturaUrl || "";
+    state.data.carimbo_modelo = state.carimbo.modelo;
+    state.data.carimbo_icone  = state.carimbo.icone;
+    state.data.carimbo_escala = state.carimbo.escala || 1;
+    state.data.carimbo_texto  = state.carimbo.texto || {};
     // numeração sequencial: preview mostra o próximo nº; emissão consome-o
     state.data.numero_sequencial = model.seq
       ? (forEmit ? window.Store.nextSeq(model.seq) : window.Store.peekSeq(model.seq)) : "";
@@ -667,7 +675,7 @@
     state.data = Object.assign(blankLikeData(), JSON.parse(JSON.stringify(h.data)));
     if (!window.Store.isHidden(h.modelId)) state.activeModelId = h.modelId;
     if (h.fmt) state.fmt = Object.assign(window.FMT.defaults(), h.fmt);
-    if (h.carimbo) state.carimbo = Object.assign({ modo: "auto", url: "", assinaturaUrl: "" }, h.carimbo);
+    if (h.carimbo) state.carimbo = Object.assign({ modo: "auto", url: "", assinaturaUrl: "", modelo: "mod01", icone: "", escala: 1, texto: { l1: "", l2: "", l3: "", l4: "" } }, h.carimbo);
     renderForm(); renderRail(); renderPreview(); renderFmtDrawer();
     toast("Receita reaberta do histórico. Você pode editar e reimprimir.");
   }
@@ -1212,7 +1220,16 @@
   function loadCustomSettings() {
     try {
       const c = localStorage.getItem(CK.carimbo);
-      if (c) { const o = JSON.parse(c); state.carimbo.modo = o.modo || "auto"; state.carimbo.url = o.url || ""; state.carimbo.assinaturaUrl = o.assinaturaUrl || ""; }
+      if (c) {
+        const o = JSON.parse(c);
+        state.carimbo.modo = o.modo || "auto";
+        state.carimbo.url = o.url || "";
+        state.carimbo.assinaturaUrl = o.assinaturaUrl || "";
+        state.carimbo.modelo = o.modelo || "mod01";
+        state.carimbo.icone = o.icone == null ? "" : o.icone;
+        state.carimbo.escala = o.escala || 1;
+        state.carimbo.texto = Object.assign({ l1: "", l2: "", l3: "", l4: "" }, o.texto || {});
+      }
     } catch (_) {}
     try {
       const fh = localStorage.getItem(CK.fonthead); if (fh) state.fmt.fontHead = fh;
@@ -1231,22 +1248,137 @@
       medico_rqe: state.data.medico_rqe,
       carimbo_modo: state.carimbo.modo, carimbo_url: state.carimbo.url,
       assinatura_url: state.carimbo.assinaturaUrl,
+      carimbo_modelo: state.carimbo.modelo,
+      carimbo_icone: state.carimbo.icone,
+      carimbo_escala: state.carimbo.escala || 1,
+      carimbo_texto: state.carimbo.texto || {},
     });
+  }
+
+  /* ── Galeria de modelos de carimbo ─────────────────────────────────────── */
+  function setupCarimboModelos() {
+    const CX = window.Carimbos;
+    const gal = $("#carimbo-galeria");
+    if (!CX || !gal) return;
+    CX.injectFonts();
+
+    // Texto de exemplo da galeria: usa o médico da receita, se já preenchido.
+    const demo = () => ({
+      l1: state.carimbo.texto.l1 || state.data.medico_nome || "Dra. Ana Souza Lima",
+      l2: state.carimbo.texto.l2 || state.data.medico_especialidade || "Médica",
+      l3: state.carimbo.texto.l3 ||
+          ((state.data.medico_crm || state.data.medico_uf)
+            ? ("CRM-" + (state.data.medico_uf || "") + " " + (state.data.medico_crm || "")).trim()
+            : "CRM-MG 000000"),
+      l4: state.carimbo.texto.l4 || "",
+    });
+
+    function pintarGaleria() {
+      const d = demo();
+      gal.innerHTML = CX.modelos.map(m =>
+        '<div class="cx-card' + (m.id === state.carimbo.modelo ? " sel" : "") + '" data-mod="' + m.id + '">' +
+          '<div class="cx-card-prev">' + CX.build(m.id, d, state.carimbo.icone, 1) + "</div>" +
+          '<div class="cx-card-nome">' + escHtml(m.nome) + "</div>" +
+        "</div>"
+      ).join("");
+    }
+
+    const icos = $("#carimbo-icones");
+    function pintarIcones() {
+      if (!icos) return;
+      const atual = state.carimbo.icone === "" ? "__mod__" : state.carimbo.icone;
+      const cards = ['<div class="cx-ico-card' + (atual === "__mod__" ? " sel" : "") +
+        '" data-ico="__mod__"><span class="none">&#9733;</span><span class="lb">Padrão do modelo</span></div>'];
+      CX.icones.forEach(ic => {
+        const svg = ic.id === "nenhum" ? '<span class="none">&#8212;</span>' : CX.iconeSvg(ic.id);
+        cards.push('<div class="cx-ico-card' + (atual === ic.id ? " sel" : "") + '" data-ico="' + ic.id + '">' +
+          svg + '<span class="lb">' + escHtml(ic.label) + "</span></div>");
+      });
+      icos.innerHTML = cards.join("");
+    }
+
+    function atualizarTudo() {
+      pintarGaleria(); pintarIcones();
+      saveCarimbo(); renderCarimboPreview(); renderPreview();
+    }
+
+    gal.addEventListener("click", e => {
+      const card = e.target.closest(".cx-card");
+      if (!card) return;
+      state.carimbo.modelo = card.dataset.mod;
+      state.carimbo.modo = "modelo";
+      $$('input[name="carimbo-modo"]').forEach(r => r.checked = r.value === "modelo");
+      const mf = $("#carimbo-modelo-fields"); if (mf) mf.hidden = false;
+      const imf = $("#carimbo-img-fields"); if (imf) imf.hidden = true;
+      atualizarTudo();
+    });
+
+    icos?.addEventListener("click", e => {
+      const card = e.target.closest(".cx-ico-card");
+      if (!card) return;
+      state.carimbo.icone = card.dataset.ico === "__mod__" ? "" : card.dataset.ico;
+      atualizarTudo();
+    });
+
+    // Campos de texto
+    const campos = ["l1", "l2", "l3", "l4"];
+    campos.forEach(k => {
+      const el = $("#cx-" + k);
+      if (!el) return;
+      el.value = state.carimbo.texto[k] || "";
+      el.addEventListener("input", () => {
+        state.carimbo.texto[k] = el.value;
+        saveCarimbo(); renderCarimboPreview();
+      });
+    });
+
+    // Tamanho
+    const rng = $("#cx-escala"), rngV = $("#cx-escala-v");
+    if (rng) {
+      rng.value = Math.round((state.carimbo.escala || 1) * 100);
+      if (rngV) rngV.textContent = rng.value + "%";
+      rng.addEventListener("input", () => {
+        state.carimbo.escala = Number(rng.value) / 100;
+        if (rngV) rngV.textContent = rng.value + "%";
+        saveCarimbo(); renderCarimboPreview();
+      });
+      rng.addEventListener("change", () => renderPreview());
+    }
+
+    $("#cx-aplicar")?.addEventListener("click", () => {
+      state.carimbo.modo = "modelo";
+      $$('input[name="carimbo-modo"]').forEach(r => r.checked = r.value === "modelo");
+      const imf = $("#carimbo-img-fields"); if (imf) imf.hidden = true;
+      atualizarTudo();
+      toast("Carimbo aplicado às receitas.");
+    });
+
+    $("#cx-limpar")?.addEventListener("click", () => {
+      state.carimbo.texto = { l1: "", l2: "", l3: "", l4: "" };
+      campos.forEach(k => { const el = $("#cx-" + k); if (el) el.value = ""; });
+      atualizarTudo();
+      toast("Texto limpo — o carimbo volta a usar os dados do médico.");
+    });
+
+    pintarGaleria(); pintarIcones();
   }
 
   function setupCustom() {
     // ── Carimbo ──────────────────────────────────────────────────────────
     const fields = $("#carimbo-img-fields");
+    const modFields = $("#carimbo-modelo-fields");
     $$('input[name="carimbo-modo"]').forEach(r => {
       r.checked = r.value === state.carimbo.modo;
       r.addEventListener("change", () => {
         if (!r.checked) return;
         state.carimbo.modo = r.value;
         if (fields) fields.hidden = r.value !== "imagem";
+        if (modFields) modFields.hidden = r.value !== "modelo";
         saveCarimbo(); renderCarimboPreview(); renderPreview();
       });
     });
     if (fields) fields.hidden = state.carimbo.modo !== "imagem";
+    if (modFields) modFields.hidden = state.carimbo.modo !== "modelo";
     const urlInput = $("#carimbo-url");
     if (urlInput) urlInput.value = state.carimbo.url && !state.carimbo.url.startsWith("data:") ? state.carimbo.url : "";
 
@@ -1303,6 +1435,7 @@
       toast("Fontes aplicadas às receitas.");
     });
 
+    setupCarimboModelos();
     renderCarimboPreview();
 
     // ── Assinatura (imagem separada) ─────────────────────────────────────

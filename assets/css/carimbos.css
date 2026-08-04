@@ -1,0 +1,90 @@
+/* ============================================================================
+   carimbos.css — Estilos dos MODELOS DE CARIMBO (galeria + impressão).
+   Tudo em "em" para o carimbo continuar acompanhando a altura definida
+   na aba Receitas (--stamp-scale) e sair certo no PDF.
+   ============================================================================ */
+
+/* ── O carimbo em si (usado na receita, na prévia e no PDF) ─────────────── */
+.cx {
+  display: inline-flex;
+  align-items: center;
+  gap: .55em;
+  color: #16324a;
+  text-align: center;
+  line-height: 1.18;
+  max-width: 100%;
+}
+.cx-txt { display: block; }
+.cx-l { white-space: nowrap; }
+
+.cx-ico { flex: 0 0 auto; width: 2.6em; height: 2.6em; }
+.cx-ico svg { width: 100%; height: 100%; display: block; fill: currentColor; }
+
+/* Posição do ícone */
+.cx.cx-i-esq  { flex-direction: row; }
+.cx.cx-i-cima { flex-direction: column; gap: .25em; }
+.cx.cx-i-cima .cx-ico { width: 3em; height: 3em; }
+.cx.cx-i-sem  { display: inline-block; }
+
+/* Bordas */
+.cx.cx-b-nenhuma { padding: .1em .2em; }
+.cx.cx-b-caixa   { border: 1.4px solid currentColor; border-radius: 2px; padding: .38em .9em; }
+.cx.cx-b-dupla   { border: 1px solid currentColor; box-shadow: 0 0 0 2px #fff, 0 0 0 3px currentColor;
+                   padding: .38em .9em; }
+.cx.cx-b-linha   { border-bottom: 1.8px solid currentColor; padding: .1em .4em .22em; }
+.cx.cx-b-arred   { border: 1.4px solid currentColor; border-radius: .8em; padding: .38em 1.05em; }
+
+/* Dentro da folha da receita, respeita a escala do carimbo */
+.rx-stampbox .cx { transform: scale(var(--stamp-scale, 1)); transform-origin: bottom center; }
+
+/* ── Galeria de escolha (aba Carimbo & Fontes) ──────────────────────────── */
+.cf-modelfields { margin-top: 10px; }
+.cf-sub2 {
+  font-weight: 650; font-size: 13px; margin: 16px 0 8px;
+  color: #274b63; letter-spacing: .2px;
+}
+
+.cx-gal {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  max-height: 420px; overflow: auto;
+  padding: 4px; border: 1px solid #dbe6ec; border-radius: 10px; background: #fafcfd;
+}
+.cx-card {
+  border: 1.5px solid #dbe6ec; border-radius: 10px; background: #fff;
+  padding: 10px 8px 8px; cursor: pointer; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+.cx-card:hover { border-color: #0d8a72; transform: translateY(-1px); }
+.cx-card.sel { border-color: #0d8a72; box-shadow: 0 0 0 3px rgba(13,138,114,.16); background: #f2fbf8; }
+.cx-card-prev {
+  min-height: 62px; display: flex; align-items: center; justify-content: center;
+  width: 100%; overflow: hidden; font-size: 11px; color: #16324a;
+}
+.cx-card-prev .cx { max-width: 100%; }
+.cx-card-nome { font-size: 11px; color: #5b7285; font-weight: 600; }
+
+/* Seleção de ícone */
+.cx-icos {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  max-height: 210px; overflow: auto;
+  padding: 6px; border: 1px solid #dbe6ec; border-radius: 10px; background: #fafcfd;
+}
+.cx-ico-card {
+  border: 1.5px solid #dbe6ec; border-radius: 8px; background: #fff; cursor: pointer;
+  padding: 8px 4px 5px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: #16324a;
+}
+.cx-ico-card:hover { border-color: #0d8a72; }
+.cx-ico-card.sel { border-color: #0d8a72; box-shadow: 0 0 0 3px rgba(13,138,114,.16); background: #f2fbf8; }
+.cx-ico-card svg { width: 26px; height: 26px; fill: currentColor; }
+.cx-ico-card .lb { font-size: 9.5px; color: #6b8296; line-height: 1.1; text-align: center; }
+.cx-ico-card .none { font-size: 20px; line-height: 26px; color: #9fb2c0; }
+
+.cx-escala-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.cx-escala-row input[type="range"] { flex: 1; }
+.cx-escala-row b { min-width: 46px; text-align: right; font-size: 13px; color: #274b63; }
+
+@media print { .cx-gal, .cx-icos { display: none; } }

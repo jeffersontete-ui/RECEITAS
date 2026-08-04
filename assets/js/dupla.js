@@ -90,10 +90,15 @@
     const model = global.Models.byId(s.modelId);
     const half = document.createElement("div");
     half.className = "rx-half " + (model ? model.cls : "");
+    half.dataset.side = sideKey;
     half.style.width = (sideKey === "A" ? D.ratio : (100 - D.ratio)) + "%";
     const car = getCarimbo();
     s.data.carimbo_modo = car.modo; s.data.carimbo_url = car.url;
     s.data.assinatura_url = car.assinaturaUrl || "";
+    s.data.carimbo_modelo = car.modelo || "mod01";
+    s.data.carimbo_icone  = car.icone == null ? "" : car.icone;
+    s.data.carimbo_escala = car.escala || 1;
+    s.data.carimbo_texto  = car.texto || {};
     s.data.numero_sequencial = model && model.seq
       ? (forEmit ? global.Store.nextSeq(model.seq) : global.Store.peekSeq(model.seq)) : "";
     s.data.codigo_acesso = model && model.id === "ce_oficial" ? (forEmit ? genCode() : "XXXX-XXXX") : "";
@@ -132,6 +137,68 @@
     });
   }
 
+  /* ── Encolher para caber: reduz a fonte do lado até o conteúdo caber nos
+     210mm de altura da folha. Sem isso, o texto passa do fim da folha e
+     é cortado na impressão.                                              */
+  const FIT_KEY = "rx_dup_fit";
+  let FIT_ON = true;
+  function loadFit() {
+    try { const v = localStorage.getItem(FIT_KEY); if (v !== null) FIT_ON = v === "1"; } catch (_) {}
+  }
+  function saveFit() { try { localStorage.setItem(FIT_KEY, FIT_ON ? "1" : "0"); } catch (_) {} }
+
+  /* O conteúdo pode estourar por dentro (o .rx-body é flexível e encolhe),
+     então medimos a metade E os blocos internos.                          */
+  function overflows(half) {
+    if (half.scrollHeight > half.clientHeight + 1) return true;
+    const alvos = [half.querySelector(".rx-body")].concat(
+      Array.prototype.slice.call(half.children)
+    );
+    for (let i = 0; i < alvos.length; i++) {
+      const el = alvos[i];
+      if (el && el.scrollHeight > el.clientHeight + 1) return true;
+    }
+    return false;
+  }
+
+  function fitLandscape(land) {
+    const info = [];
+    let holder = null;
+    if (!land.isConnected) {
+      holder = document.createElement("div");
+      holder.style.cssText = "position:fixed;left:-99999px;top:0;visibility:hidden;";
+      holder.appendChild(land);
+      document.body.appendChild(holder);
+    }
+    land.querySelectorAll(".rx-half").forEach(half => {
+      const side = half.dataset.side || "A";
+      const base = (D.sides[side] && D.sides[side].fmt.fontSize) || 11;
+      half.style.setProperty("--rx-size", base + "pt");
+      if (!half.clientHeight) return;                 // aba fechada: não dá para medir
+      if (!FIT_ON) return;
+      let size = base, guard = 0;
+      while (overflows(half) && size > 6 && guard++ < 80) {
+        size = Math.round((size - 0.25) * 100) / 100;
+        half.style.setProperty("--rx-size", size + "pt");
+      }
+      if (size < base) info.push((side === "A" ? "esquerda" : "direita") + " " + size + "pt");
+      if (overflows(half)) info.push((side === "A" ? "esquerda" : "direita") + " ainda excede");
+    });
+    if (holder) { holder.removeChild(land); document.body.removeChild(holder); }
+    return info;
+  }
+
+  function showFitInfo(info) {
+    const el = $("#dup-fit-info");
+    if (!el) return;
+    if (!info || !info.length) { el.textContent = ""; el.hidden = true; return; }
+    el.hidden = false;
+    el.textContent = info.some(t => t.indexOf("excede") >= 0)
+      ? "Atenção: o conteúdo ainda passa do fim da folha (" + info.join(", ") +
+        "). Reduza as margens, a entrelinha ou o número de itens."
+      : "Ajustado para caber na folha: " + info.join(", ") + ".";
+  }
+
   function buildLandscape(forEmit) {
     const land = document.createElement("div");
     land.className = "a4-land";
@@ -155,7 +222,9 @@
     const sc = $("#dup-scaler");
     if (!sc) return;
     sc.innerHTML = "";
-    sc.appendChild(buildLandscape());
+    const land = buildLandscape();
+    sc.appendChild(land);
+    showFitInfo(fitLandscape(land));
     sc.style.transform = `scale(${D.zoom})`;
     // reserva o tamanho JÁ escalado no wrapper, senão a folha (1123px) vaza
     const wrap = sc.parentElement;
@@ -378,13 +447,25 @@
     }
     updateRatioUI();
     $$(".dup-rp").forEach(b => b.addEventListener("click", () => setRatio(parseInt(b.dataset.r, 10))));
-    $("#dup-print")?.addEventListener("click", () => window.Exporter.printSheet(buildLandscape(true), { landscape: true }));
+    $("#dup-print")?.addEventListener("click", () => {
+      const land = buildLandscape(true);
+      fitLandscape(land);
+      window.Exporter.printSheet(land, { landscape: true });
+    });
     $("#dup-pdf")?.addEventListener("click", async () => {
       try {
-        const ok = await window.Exporter.exportPdf(buildLandscape(true), "receita-dupla.pdf", { landscape: true });
+        const landPdf = buildLandscape(true);
+        fitLandscape(landPdf);
+        const ok = await window.Exporter.exportPdf(landPdf, "receita-dupla.pdf", { landscape: true });
         toast(ok ? "PDF exportado." : "Abrindo impressão para salvar em PDF.");
       } catch (e) { toast("Não foi possível gerar o PDF: " + e.message, "err"); }
     });
+    loadFit();
+    const fitChk = $("#dup-fit");
+    if (fitChk) {
+      fitChk.checked = FIT_ON;
+      fitChk.addEventListener("change", () => { FIT_ON = fitChk.checked; saveFit(); renderPreview(); });
+    }
     $("#dup-zoom-in")?.addEventListener("click", () => { D.zoom = Math.min(1, D.zoom + 0.06); renderPreview(); });
     $("#dup-zoom-out")?.addEventListener("click", () => { D.zoom = Math.max(0.3, D.zoom - 0.06); renderPreview(); });
   }

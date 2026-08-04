@@ -1,7 +1,11 @@
 /* ============================================================================
-   stamp.js — Carimbo gerado automaticamente a partir de nome + CRM + UF.
-   Mesma ideia do sistema original: o estilo é fixo por médico (determinístico),
-   então o mesmo médico sai sempre com o mesmo carimbo.
+   stamp.js — Carimbo do médico.
+
+   Três modos:
+     • "auto"    → gerado a partir de nome + CRM + UF (estilo fixo por médico)
+     • "imagem"  → imagem enviada ou URL da internet
+     • "modelo"  → MODELO PRONTO escolhido na galeria (assets/js/carimbos.js),
+                   com texto editável linha a linha
    ============================================================================ */
 (function (global) {
   "use strict";
@@ -25,7 +29,8 @@
   }
 
   // Retorna o HTML do carimbo. dados: {medico_nome, medico_crm, medico_uf,
-  // medico_especialidade, medico_rqe, carimbo_modo, carimbo_url}
+  // medico_especialidade, medico_rqe, carimbo_modo, carimbo_url,
+  // carimbo_modelo, carimbo_texto, carimbo_icone, carimbo_escala}
   function buildStamp(dados) {
     const sig = dados.assinatura_url
       ? '<img class="sign-img" src="' + esc(dados.assinatura_url) + '" alt="Assinatura" crossorigin="anonymous">'
@@ -38,14 +43,31 @@
     }
 
     const nome = (dados.medico_nome || "").trim();
-    if (!nome) {
-      return sig + '<span class="stamp st-under"><span class="s1">&nbsp;</span>' +
-             '<div class="s3">Carimbo do médico</div></span>';
-    }
     const uf   = (dados.medico_uf || "").trim();
     const crm  = (dados.medico_crm || "").trim();
     const esp  = (dados.medico_especialidade || "").trim();
     const rqe  = (dados.medico_rqe || "").trim();
+
+    // ── Carimbo por MODELO da galeria ───────────────────────────────────
+    if (dados.carimbo_modo === "modelo" && global.Carimbos) {
+      const t = dados.carimbo_texto || {};
+      const regAuto = (crm || uf) ? ("CRM-" + uf + " " + crm).trim() : "";
+      const linhas = {
+        l1: (t.l1 || "").trim() || nome,
+        l2: (t.l2 || "").trim() || esp,
+        l3: (t.l3 || "").trim() || regAuto,
+        l4: (t.l4 || "").trim() || (rqe ? "RQE Nº " + rqe : ""),
+      };
+      return sig + global.Carimbos.build(
+        dados.carimbo_modelo, linhas, dados.carimbo_icone, dados.carimbo_escala || 1
+      );
+    }
+
+    // ── Automático ──────────────────────────────────────────────────────
+    if (!nome) {
+      return sig + '<span class="stamp st-under"><span class="s1">&nbsp;</span>' +
+             '<div class="s3">Carimbo do médico</div></span>';
+    }
 
     let l2 = esp || "MÉDICO(A)";
     if (rqe) l2 += " — RQE Nº " + rqe;
