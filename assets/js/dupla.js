@@ -323,6 +323,36 @@
     renderItens(sideKey);
   }
 
+  // Preenchimento automático (CRM do médico, endereço do paciente) na receita dupla.
+  function autoCadastro(sideKey, host, campo) {
+    const s = D.sides[sideKey];
+    const C = global.Cadastro;
+    if (!C) return;
+    const inp = k => host.querySelector('[data-k="' + k + '"]');
+    s._auto = s._auto || {};
+
+    if (campo === "medico_nome") {
+      const rec = C.lookup("medicos", (inp("medico_nome") || {}).value || "");
+      if (!rec) return;
+      C.preencher([
+        { el: inp("medico_crm"),           chave: "crm",  valor: rec.crm },
+        { el: inp("medico_uf"),            chave: "uf",   valor: (rec.uf || "").toUpperCase() },
+        { el: inp("medico_especialidade"), chave: "esp",  valor: rec.especialidade },
+        { el: inp("medico_rqe"),           chave: "rqe",  valor: rec.rqe },
+        { el: inp("medico_endereco"),      chave: "end",  valor: rec.endereco },
+        { el: inp("medico_telefone"),      chave: "tel",  valor: rec.telefone },
+      ], s._auto);
+    } else {
+      const rec = C.lookup("pacientes", (inp("paciente_nome") || {}).value || "");
+      if (!rec) return;
+      C.preencher([
+        { el: inp("paciente_endereco"), chave: "pend",   valor: rec.endereco },
+        { el: inp("paciente_bairro"),   chave: "pbairro",valor: rec.bairro },
+        { el: inp("cidade"),            chave: "pcidade",valor: rec.cidade },
+      ], s._auto);
+    }
+  }
+
   function bindSide(sideKey, host) {
     const s = D.sides[sideKey];
 
@@ -334,6 +364,11 @@
       const k = inp.dataset.k;
       inp.value = s.data[k] || "";
       inp.addEventListener("input", () => { s.data[k] = inp.value; renderPreview(); });
+      // Ao digitar o nome do médico (ou do paciente), busca o restante no cadastro.
+      if (k === "medico_nome" || k === "paciente_nome") {
+        ["input", "change", "blur"].forEach(ev =>
+          inp.addEventListener(ev, () => autoCadastro(sideKey, host, k)));
+      }
     });
 
     host.querySelector(".dup-fonthead").addEventListener("change", e => { s.fmt.fontHead = e.target.value; renderPreview(); });

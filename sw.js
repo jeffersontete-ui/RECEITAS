@@ -8,7 +8,7 @@
    ============================================================================ */
 /* Ao publicar uma nova versão, basta subir este número: o cache antigo é
    descartado e todos os navegadores recebem os arquivos novos. */
-const VERSION = "v5";
+const VERSION = "v6";
 const APP_CACHE = "receitas-app-" + VERSION;
 const RUNTIME_CACHE = "receitas-runtime-" + VERSION;
 
@@ -16,7 +16,7 @@ const RUNTIME_CACHE = "receitas-runtime-" + VERSION;
 const SHELL = [
   "", "index.html", "manifest.webmanifest",
   "assets/css/app.css", "assets/css/receita.css", "assets/css/carimbos.css",
-  "assets/js/fonts.js", "assets/js/stamp.js", "assets/js/carimbos.js", "assets/js/models.js",
+  "assets/js/fonts.js", "assets/js/cadastro.js", "assets/js/campos.js", "assets/js/stamp.js", "assets/js/carimbos.js", "assets/js/models.js",
   "assets/js/format.js", "assets/js/templates.js", "assets/js/importer.js",
   "assets/js/export.js", "assets/js/dupla.js", "assets/js/app.js",
   "assets/icon.svg", "assets/img/hero.png",

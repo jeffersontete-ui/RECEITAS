@@ -653,3 +653,72 @@ body.dup-dragging { cursor: col-resize; user-select: none; }
   color: var(--muted); white-space: nowrap; cursor: pointer; }
 .dup-fit-info { font-size: 12.5px; color: var(--accent-ink); background: #f2fbf8;
   border: 1px solid #bfe6db; border-radius: 8px; padding: 8px 10px; margin: 0 0 12px; line-height: 1.4; }
+
+/* ==========================================================================
+   Preenchimento automático do cadastro (CRM do médico) e
+   formatação individual de cada campo da receita.
+   ========================================================================== */
+
+/* Dica embaixo do nome do médico */
+.auto-hint {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  margin: 0 0 10px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: rgba(127, 127, 127, .08);
+  border: 1px solid rgba(127, 127, 127, .18);
+}
+.auto-hint.ok   { color: #0a6b52; background: rgba(16, 160, 120, .12); border-color: rgba(16, 160, 120, .35); }
+.auto-hint.warn { color: #8a5a00; background: rgba(220, 160, 20, .12); border-color: rgba(220, 160, 20, .35); }
+
+/* Modo "clicar na folha para escolher o campo" */
+.a4.pick-campo { cursor: crosshair; }
+.a4.pick-campo * { cursor: crosshair; }
+.a4.pick-campo .rx-emit-name:hover, .a4.pick-campo .rx-emit-line:hover,
+.a4.pick-campo .rx-emit-sub:hover,  .a4.pick-campo .titulo:hover,
+.a4.pick-campo .rx-field:hover,     .a4.pick-campo .rx-presc-title:hover,
+.a4.pick-campo ol.rx-list li:hover, .a4.pick-campo .rx-localdata:hover,
+.a4.pick-campo .rx-sign-line:hover, .a4.pick-campo .rx-stampbox:hover,
+.a4.pick-campo .ce-box:hover {
+  outline: 2px dashed #2f7df6;
+  outline-offset: 2px;
+  background: rgba(47, 125, 246, .07);
+}
+
+/* Painel de formatação campo a campo */
+.campos-box { margin-top: 16px; border-top: 1px solid var(--line, rgba(127,127,127,.25)); padding-top: 12px; }
+.campos-box .cp-h { margin: 0 0 4px; font-size: 14px; }
+.campos-box .cp-hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.campos-box .cp-top { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+.campos-box .cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.campos-box .cp-line { display: flex; flex-direction: column; gap: 5px; }
+.campos-box .cp-lab { font-size: 12px; color: var(--muted); }
+.campos-box .cp-tgs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.cp-tg {
+  min-width: 34px; height: 32px; padding: 0 9px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 7px; background: transparent;
+  color: inherit; font-weight: 700; cursor: pointer; line-height: 1;
+}
+.cp-tg:hover { border-color: #2f7df6; }
+.cp-tg.on  { background: #2f7df6; border-color: #2f7df6; color: #fff; }
+.cp-tg.off { opacity: .65; text-decoration: line-through; border-style: dashed; }
+.cp-mini { padding: 4px 9px !important; font-size: 12px; }
+.cp-pick.on, .btn#btn-pick-campo.primary { box-shadow: 0 0 0 2px rgba(47, 125, 246, .35); }
+.campos-box input[type="color"] { width: 44px; height: 32px; padding: 2px; border-radius: 7px; border: 1px solid rgba(127,127,127,.35); background: transparent; cursor: pointer; }
+
+.campos-box .cp-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.campos-box .cp-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.cp-chip {
+  font-size: 12px; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(127, 127, 127, .35); background: transparent; color: inherit;
+}
+.cp-chip:hover { border-color: #2f7df6; }
+.cp-chip.sel { background: #2f7df6; border-color: #2f7df6; color: #fff; }
+
+@media print {
+  .a4.pick-campo, .a4.pick-campo * { outline: none !important; background-image: none !important; cursor: auto !important; }
+}

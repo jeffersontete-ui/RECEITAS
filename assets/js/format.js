@@ -29,6 +29,7 @@
       stampScale: 1.0,       //     (usado quando autoStamp = false)
       autoSignature: true,
       sigGap: 10,            // mm  (usado quando autoSignature = false)
+      partes: {},            // formatação individual de cada campo (campos.js)
     };
   }
 
@@ -60,10 +61,13 @@
     // Auto: o rodapé é ancorado ao fim da folha pelo flexbox (respiro mínimo).
     // Manual: o usuário empurra o bloco com um respiro maior.
     s.setProperty("--sig-gap", (fmt.autoSignature ? 8 : fmt.sigGap) + "mm");
+
+    // ── Formatação INDIVIDUAL de cada campo (campos.js) ─────────────────
+    if (global.Campos) global.Campos.applyTo(a4El, fmt);
   }
 
   // Constrói os controles no drawer. onChange() é chamado a cada ajuste.
-  function buildControls(host, fmt, onChange) {
+  function buildControls(host, fmt, onChange, opts) {
     const cat = fontCatalog();
     const optsFor = current => cat.map(f =>
       `<option value="${f.css}" ${f.css === current ? "selected" : ""}>${f.label}</option>`
@@ -124,7 +128,9 @@
             <input type="range" id="f-sg" min="0" max="60" step="1" value="${fmt.sigGap}" ${fmt.autoSignature ? "disabled" : ""}>
           </div>
         </div>
-      </div>`;
+      </div>
+
+      <div class="campos-box" id="campos-box"><!-- formatação campo a campo --></div>`;
 
     const $ = id => host.querySelector(id);
 
@@ -165,6 +171,11 @@
     $("#f-sg").addEventListener("input", e => {
       fmt.sigGap = parseInt(e.target.value, 10); $("#f-sg-v").textContent = fmt.sigGap + "mm"; onChange();
     });
+
+    // Painel "Formatação de cada campo".
+    if (global.Campos) {
+      global.Campos.buildControls($("#campos-box"), fmt, () => onChange(), opts || {});
+    }
   }
 
   global.FMT = { defaults, apply, buildControls };

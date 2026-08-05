@@ -7,9 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;550;600;650;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=5">
-  <link rel="stylesheet" href="assets/css/receita.css?v=5">
-  <link rel="stylesheet" href="assets/css/carimbos.css?v=5">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <link rel="stylesheet" href="assets/css/receita.css?v=6">
+  <link rel="stylesheet" href="assets/css/carimbos.css?v=6">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0d8a72">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
@@ -109,8 +109,9 @@
       <section class="panel form-col">
         <div class="section">
           <h3>Médico</h3>
-          <label class="field"><span>Nome do médico</span>
+          <label class="field" style="margin-bottom:4px"><span>Nome do médico</span>
             <input type="text" id="i-medico" list="dl-medicos" placeholder="Dr. Fulano de Tal"></label>
+          <div class="auto-hint" id="medico-hint">Comece a digitar o nome: o CRM é preenchido automaticamente.</div>
           <div class="row3">
             <label class="field"><span>CRM</span><input type="text" id="i-crm" placeholder="12345"></label>
             <label class="field"><span>UF</span><input type="text" id="i-uf" placeholder="MG" maxlength="2"></label>
@@ -165,6 +166,8 @@
           <button class="btn primary" id="btn-pdf">⭳ Exportar PDF</button>
           <button class="btn" id="btn-save-tpl">☆ Salvar como modelo</button>
           <button class="btn" id="btn-edit-sheet" title="Abre a aba Editar na Folha">✎ Editar na folha</button>
+          <button class="btn" id="btn-pick-campo"
+                  title="Clique aqui e depois no texto da folha para mudar fonte, tamanho e estilo só daquele campo">🎨 Formatar campo</button>
           <div class="zoom">
             <button class="btn ghost zoom-btn" id="zoom-fit" title="Ajustar à largura — letras maiores, rola na vertical">⤢ Largura</button>
             <button class="btn ghost zoom-btn" id="zoom-page" title="Ver a folha inteira na tela">⛶ Página</button>
@@ -181,7 +184,7 @@
         <div class="fmt-dock collapsed" id="fmt-dock">
           <button class="fmt-dock-head" id="fmt-dock-toggle" aria-expanded="false"
                   title="Mostrar/ocultar os controles de formatação">
-            <span class="fdh-t">⚙ Formatação do modelo</span>
+            <span class="fdh-t">⚙ Formatação do modelo e de cada campo</span>
             <span class="fdh-caret">▾</span>
           </button>
           <div class="fmt-drawer" id="fmt-drawer"><!-- controles de formatação --></div>
@@ -315,8 +318,10 @@
 
           <div class="list-card">
             <div class="lc-head"><span class="lc-ico">⚕</span><h3>Médicos</h3></div>
-            <p class="lc-desc">Coluna com o nome do médico. Cabeçalho reconhecido:
-              <code>NOME</code>.</p>
+            <p class="lc-desc">Colunas reconhecidas: <code>NOME</code>, <code>CRM</code>,
+              <code>UF</code>, <code>CONSELHO</code>, <code>ESPECIALIDADE</code>,
+              <code>RQE</code>, <code>ENDERECO</code>, <code>TELEFONE</code>. Ao digitar o nome
+              na receita, o CRM e os demais dados entram sozinhos.</p>
             <div class="lc-actions">
               <label class="btn primary lc-file">Escolher CSV
                 <input type="file" id="lst-medicos" accept=".csv,.txt" hidden></label>
@@ -359,9 +364,11 @@
               é detectado automaticamente. Este é o formato dos CSVs do Digifarma, então os
               arquivos exportados de lá funcionam direto.</p>
             <p>O sistema procura a coluna certa pelo nome do cabeçalho. Exemplos válidos:</p>
-            <pre class="lh-ex">NOME;CRM;UF
-Dra. Ana Souza;12345;MG
-Dr. Bruno Lima;67890;SP</pre>
+            <pre class="lh-ex">NOME;CRM;UF;CONSELHO;ESPECIALIDADE;RQE;ENDERECO;TELEFONE
+Dra. Ana Souza;12345;MG;CRM;Clínica Médica;;Rua A, 10;(32) 3531-0000
+Dr. Bruno Lima;67890;SP;CRM;Pediatria;;;</pre>
+            <p class="lh-note">Só <code>NOME</code> e <code>CRM</code> são necessários; as demais
+              colunas são opcionais e, quando existirem, também são preenchidas na receita.</p>
             <pre class="lh-ex">CLIENTE_ID;CLIENTE;CLI_CIDADE
 1;Maria Oliveira;Juiz de Fora
 2;José Pereira;Mar de Espanha</pre>
@@ -572,16 +579,18 @@ Dr. Bruno Lima;67890;SP</pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- ── Módulos do app ─────────────────────────────────────────────────── -->
-  <script src="assets/js/fonts.js?v=5"></script>
-  <script src="assets/js/carimbos.js?v=5"></script>
-  <script src="assets/js/stamp.js?v=5"></script>
-  <script src="assets/js/models.js?v=5"></script>
-  <script src="assets/js/format.js?v=5"></script>
-  <script src="assets/js/templates.js?v=5"></script>
-  <script src="assets/js/importer.js?v=5"></script>
-  <script src="assets/js/export.js?v=5"></script>
-  <script src="assets/js/dupla.js?v=5"></script>
-  <script src="assets/js/app.js?v=5"></script>
+  <script src="assets/js/fonts.js?v=6"></script>
+  <script src="assets/js/cadastro.js?v=6"></script>
+  <script src="assets/js/campos.js?v=6"></script>
+  <script src="assets/js/carimbos.js?v=6"></script>
+  <script src="assets/js/stamp.js?v=6"></script>
+  <script src="assets/js/models.js?v=6"></script>
+  <script src="assets/js/format.js?v=6"></script>
+  <script src="assets/js/templates.js?v=6"></script>
+  <script src="assets/js/importer.js?v=6"></script>
+  <script src="assets/js/export.js?v=6"></script>
+  <script src="assets/js/dupla.js?v=6"></script>
+  <script src="assets/js/app.js?v=6"></script>
   <script>
     // PWA: registra o service worker (funciona em HTTPS, como o GitHub Pages).
     if ("serviceWorker" in navigator) {

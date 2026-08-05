@@ -1,0 +1,125 @@
+=========================================================================
+ MÓDULO RECEITAS — ATUALIZAÇÃO
+ 1) Busca automática do CRM ao digitar o nome do médico
+ 2) Formatação separada de cada dado da receita (fonte, tamanho, estilo…)
+=========================================================================
+
+-------------------------------------------------------------------------
+O QUE SUBIR NO GITHUB (jeffersontete-ui/RECEITAS)
+-------------------------------------------------------------------------
+Arraste cada arquivo para a MESMA pasta em que ele já está no repositório.
+Onde já existir, o GitHub pergunta se quer substituir — pode substituir.
+
+  index.html                    (raiz)          ALTERADO
+  sw.js                         (raiz)          ALTERADO
+  assets/css/app.css                            ALTERADO
+  assets/js/app.js                              ALTERADO
+  assets/js/format.js                           ALTERADO
+  assets/js/dupla.js                            ALTERADO
+  assets/js/cadastro.js                         NOVO
+  assets/js/campos.js                           NOVO
+  data/medicos.csv                              ALTERADO (exemplo com as
+                                                 colunas novas — só suba se
+                                                 quiser substituir o exemplo)
+
+Nenhum outro arquivo do repositório foi tocado.
+
+DEPOIS DE PUBLICAR: abra a página e dê um Ctrl+F5 (ou Ctrl+Shift+R).
+O service worker subiu para a versão v6, então o cache antigo é descartado
+sozinho — mas o Ctrl+F5 garante que os arquivos novos entrem na hora.
+
+-------------------------------------------------------------------------
+1) NOME DO MÉDICO  ->  CRM AUTOMÁTICO
+-------------------------------------------------------------------------
+Ao digitar o nome do médico na aba Receitas, o sistema procura na lista de
+médicos e preenche sozinho:
+
+    CRM · UF · Conselho · Especialidade · RQE · Endereço · Telefone
+
+Detalhes:
+ • Aceita nome parcial e ignora "Dr./Dra." — digitar "maria souza"
+   encontra "Dra. Maria Souza".
+ • Só preenche campo VAZIO ou que o próprio sistema preencheu antes.
+   O que você digitou à mão nunca é apagado.
+ • Digitando o CRM com o nome em branco, ele identifica o médico e
+   preenche o nome (busca ao contrário).
+ • Abaixo do nome aparece uma faixa de conferência:
+       ✓ Dra. Maria Souza — CRM-SP 40211 · Pediatria
+   ou o aviso de que o médico não está na lista.
+ • A sugestão do autocompletar já mostra o CRM ao lado do nome.
+ • Vale também para o PACIENTE (endereço, bairro e cidade) e na aba
+   Receita Dupla.
+
+FORMATO DO CSV DE MÉDICOS (aba Listas ou data/medicos.csv)
+Cabeçalho reconhecido (a ordem não importa, colunas extras são ignoradas):
+
+    NOME;CRM;UF;CONSELHO;ESPECIALIDADE;RQE;ENDERECO;TELEFONE
+
+Só NOME e CRM são necessários. Exemplo:
+
+    NOME;CRM;UF;CONSELHO;ESPECIALIDADE;RQE;ENDERECO;TELEFONE
+    Dr. João Silva;18752;MG;CRM;Clínica Médica;;Rua A, 120;(32) 3531-0001
+    Dra. Maria Souza;40211;SP;CRM;Pediatria;12345;Av. B, 900;(11) 3555-0002
+
+Também são aceitos outros nomes de coluna: REGISTRO/INSCRIÇÃO no lugar de
+CRM, FONE/CELULAR no lugar de TELEFONE, CONSULTÓRIO no lugar de ENDERECO.
+
+IMPORTANTE: se você já tinha uma lista de médicos importada no navegador
+(versão antiga, que guardava só os nomes), o sistema recupera os dados do
+CSV do repositório automaticamente. Se a sua lista veio de um arquivo seu,
+importe o CSV de novo na aba Listas para que os CRMs entrem no cadastro.
+
+-------------------------------------------------------------------------
+2) CADA DADO DA RECEITA FORMATADO SEPARADAMENTE
+-------------------------------------------------------------------------
+Na aba Receitas, no rodapé da prévia, abra
+"⚙ Formatação do modelo e de cada campo".
+Lá embaixo está o painel "Formatação de cada campo".
+
+CAMPOS DISPONÍVEIS (17):
+  Nome do médico · CRM/registro · Especialidade, endereço e telefone ·
+  Título da receita · Subtítulos, vias e selos · Rótulos (Paciente:,
+  Endereço:) · Dados do paciente · Título PRESCRIÇÃO · Nome do
+  medicamento · Quantidade · Posologia · Lista da prescrição (geral) ·
+  Cidade e data · Linha da assinatura · Carimbo (texto) · Quadros de
+  identificação/rodapé · Corpo inteiro da receita
+
+O QUE DÁ PARA MUDAR EM CADA UM:
+  Fonte (todas as do catálogo)      Tamanho em pt
+  Negrito · Itálico · Sublinhado    MAIÚSCULAS
+  Alinhamento (esq/centro/dir/just) Cor do texto
+  Espaço entre letras (px)          Entrelinha
+
+COMO ESCOLHER O CAMPO — dois jeitos:
+  a) pela lista "Campo da receita"; ou
+  b) botão "🎨 Formatar campo" na barra da prévia: clique nele e depois
+     clique direto no texto da folha. O campo é reconhecido sozinho.
+     (Clique de novo no botão para sair desse modo.)
+
+Os botões N / I / S / AA:
+  N e I têm três estados — padrão (do modelo) → ligado → desligado.
+  "Desligado" serve para TIRAR o negrito que o modelo já traz.
+
+RESTAURAR: "↺ Restaurar este campo" volta um campo ao padrão;
+"↺ Restaurar todos os campos" limpa tudo. Os campos personalizados
+aparecem como etiquetas no fim do painel, para pular direto neles.
+
+ONDE VALE: prévia, aba "Editar na Folha", impressão e PDF.
+A formatação é salva por MODELO, no seu navegador — cada modelo de
+receita guarda a sua.
+
+-------------------------------------------------------------------------
+DÚVIDAS COMUNS
+-------------------------------------------------------------------------
+"O CRM não preencheu."
+   Confira na aba Listas se a lista de médicos está carregada e se o CSV
+   tem a coluna CRM. A faixa embaixo do nome diz o que está faltando.
+
+"Mudei o tamanho de um campo e nada aconteceu."
+   Verifique se a receita não está com edição manual ativa (aba Editar na
+   Folha). Em edição livre a folha usa o texto que você digitou; use
+   "↺ Voltar ao modelo" se quiser voltar ao automático.
+
+"Quero o mesmo tamanho para tudo."
+   Use "Tamanho da fonte" lá em cima (formatação do modelo). Os campos
+   personalizados têm prioridade sobre ele.

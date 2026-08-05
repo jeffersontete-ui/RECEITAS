@@ -42,6 +42,9 @@
     },
     editMode: false,
     overrides: {},
+    pickCampo: false,          // modo "clicar na folha para formatar o campo"
+    autoMed: {},               // valores preenchidos automaticamente (médico)
+    autoPac: {},               // valores preenchidos automaticamente (paciente)
   };
 
   /* ── Utilidades ────────────────────────────────────────────────────────── */
@@ -162,6 +165,93 @@
     renderItens();
     renderRenovavelField();
     renderAnimalField();
+    setupAutoCadastro();
+  }
+
+  /* ── Preenchimento automático pelo cadastro (CRM do médico etc.) ───────── */
+  let autoCadastroPronto = false;
+
+  function setupAutoCadastro() {
+    if (autoCadastroPronto) return;
+    autoCadastroPronto = true;
+    const nome = $("#i-medico");
+    if (nome) ["input", "change", "blur"].forEach(ev => nome.addEventListener(ev, autoMedico));
+    const pac = $("#i-pac");
+    if (pac) ["input", "change", "blur"].forEach(ev => pac.addEventListener(ev, autoPaciente));
+    const crm = $("#i-crm");
+    if (crm) crm.addEventListener("change", autoPeloCrm);
+  }
+
+  // Digitou o nome do médico → busca o CRM (e UF, especialidade, RQE, etc.).
+  function autoMedico() {
+    const el = $("#i-medico");
+    if (!el || !window.Cadastro) return;
+    const rec = window.Cadastro.lookup("medicos", el.value);
+    if (!rec) { renderMedicoHint(null); return; }
+    const n = window.Cadastro.preencher([
+      { el: $("#i-crm"),     chave: "crm",           valor: rec.crm },
+      { el: $("#i-uf"),      chave: "uf",            valor: (rec.uf || "").toUpperCase() },
+      { el: $("#i-esp"),     chave: "especialidade", valor: rec.especialidade },
+      { el: $("#i-rqe"),     chave: "rqe",           valor: rec.rqe },
+      { el: $("#i-med-end"), chave: "endereco",      valor: rec.endereco },
+      { el: $("#i-med-tel"), chave: "telefone",      valor: rec.telefone },
+    ], state.autoMed);
+    renderMedicoHint(rec);
+    if (n) renderReqWarn();
+  }
+
+  // Digitou o CRM e o nome está vazio → identifica o médico pelo número.
+  function autoPeloCrm() {
+    const crm = $("#i-crm"), nome = $("#i-medico");
+    if (!crm || !nome || !window.Cadastro) return;
+    if ((nome.value || "").trim()) return;
+    const rec = window.Cadastro.lookupCrm(crm.value);
+    if (!rec) return;
+    nome.value = rec.nome;
+    nome.dispatchEvent(new Event("input", { bubbles: true }));
+    autoMedico();
+  }
+
+  // Digitou o nome do paciente → traz endereço, bairro e cidade do cadastro.
+  function autoPaciente() {
+    const el = $("#i-pac");
+    if (!el || !window.Cadastro) return;
+    const rec = window.Cadastro.lookup("pacientes", el.value);
+    if (!rec) return;
+    window.Cadastro.preencher([
+      { el: $("#i-pac-end"),    chave: "endereco", valor: rec.endereco },
+      { el: $("#i-pac-bairro"), chave: "bairro",   valor: rec.bairro },
+      { el: $("#i-cidade"),     chave: "cidade",   valor: rec.cidade },
+    ], state.autoPac);
+  }
+
+  // Aviso embaixo do nome do médico.
+  function renderMedicoHint(rec) {
+    const box = $("#medico-hint");
+    if (!box) return;
+    const digitado = (($("#i-medico") || {}).value || "").trim();
+    const total = window.Cadastro ? window.Cadastro.get("medicos").length : 0;
+    if (!total) {
+      box.className = "auto-hint warn";
+      box.textContent = "Nenhuma lista de médicos carregada — importe o CSV na aba Listas para buscar o CRM sozinho.";
+      return;
+    }
+    if (rec) {
+      const conselho = (rec.conselho || "CRM").toUpperCase();
+      const uf = (rec.uf || "").toUpperCase();
+      box.className = "auto-hint ok";
+      box.textContent = "✓ " + rec.nome + " — " + conselho + (uf ? "-" + uf : "") +
+        " " + (rec.crm || "sem número no cadastro") +
+        (rec.especialidade ? " · " + rec.especialidade : "");
+      return;
+    }
+    if (digitado.length >= 3) {
+      box.className = "auto-hint warn";
+      box.textContent = "Médico não encontrado na lista (" + total + " cadastrados) — preencha o CRM à mão.";
+    } else {
+      box.className = "auto-hint";
+      box.textContent = "Comece a digitar o nome: o CRM é preenchido automaticamente.";
+    }
   }
 
   function renderAnimalField() {
@@ -280,6 +370,7 @@
     }
     scaler.style.transform = `scale(${state.zoom})`;
     sizeScalerWrap(scaler, sheet);
+    if (state.pickCampo) sheet.classList.add("pick-campo");
     if (state.editMode) enableSheetEditing(sheet);
     renderReqWarn();
     renderEditBar();
@@ -387,7 +478,48 @@
   function renderFmtDrawer() {
     const host = $("#fmt-drawer");
     if (!state.activeModelId) { host.innerHTML = ""; return; }
-    window.FMT.buildControls(host, state.fmt, () => renderPreview());
+    window.FMT.buildControls(host, state.fmt, () => { saveFmtAtual(); renderPreview(); }, {
+      onPick: () => togglePickCampo(),
+      pickAtivo: state.pickCampo,
+    });
+  }
+
+  function saveFmtAtual() {
+    if (state.activeModelId) window.Store.saveFmt(state.activeModelId, state.fmt);
+  }
+
+  function openFmtDock() {
+    const dock = $("#fmt-dock");
+    if (dock && dock.classList.contains("collapsed")) {
+      dock.classList.remove("collapsed");
+      $("#fmt-dock-toggle")?.setAttribute("aria-expanded", "true");
+      setTimeout(() => fitPreview(), 20);
+    }
+  }
+
+  /* ── Formatar campo clicando na folha ──────────────────────────────────── */
+  function togglePickCampo(force) {
+    if (state.editMode) { toast("Conclua a edição livre antes de formatar campos.", "err"); return; }
+    state.pickCampo = force == null ? !state.pickCampo : !!force;
+    const btn = $("#btn-pick-campo");
+    if (btn) {
+      btn.classList.toggle("primary", state.pickCampo);
+      btn.textContent = state.pickCampo ? "🎯 Clique no texto da folha" : "🎨 Formatar campo";
+    }
+    const sheet = $("#a4-scaler .a4");
+    if (sheet) sheet.classList.toggle("pick-campo", state.pickCampo);
+    if (state.pickCampo) { openFmtDock(); toast("Clique no texto da folha para escolher o campo."); }
+    renderFmtDrawer();
+  }
+
+  function pickCampoAt(target) {
+    if (!window.Campos) return;
+    const id = window.Campos.partAt(target);
+    if (!id) { toast("Não reconheci esse trecho — escolha o campo na lista.", "err"); return; }
+    window.Campos.select(id);
+    openFmtDock();
+    renderFmtDrawer();
+    toast("Campo selecionado: " + window.Campos.byId(id).label);
   }
 
   /* ── Barra de ações ────────────────────────────────────────────────────── */
@@ -449,6 +581,12 @@
 
   // O botão antigo continua existindo como atalho — agora leva para a aba própria.
   $("#btn-edit-sheet")?.addEventListener("click", () => switchTab("folha"));
+  $("#btn-pick-campo")?.addEventListener("click", () => togglePickCampo());
+  $("#a4-scaler")?.addEventListener("click", e => {
+    if (!state.pickCampo) return;
+    e.preventDefault();
+    pickCampoAt(e.target);
+  });
 
   /* ══════════════════════════════════════════════════════════════════════════
      ABA "EDITAR NA FOLHA"
@@ -1083,57 +1221,7 @@
     pacientes:    { key: "rx_list_pacientes",    dl: "dl-pacientes",    url: "data/clientes.csv",     heads: ["CLIENTE", "PACIENTE", "NOME", "NAME"],                     defCol: 1 },
   };
 
-  // Divide uma linha de CSV respeitando aspas.
-  function splitCsvLine(line, delim) {
-    const out = []; let cur = "", q = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (q) {
-        if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
-        else cur += ch;
-      } else {
-        if (ch === '"') q = true;
-        else if (ch === delim) { out.push(cur); cur = ""; }
-        else cur += ch;
-      }
-    }
-    out.push(cur);
-    return out;
-  }
-
-  function detectDelim(headerLine) {
-    const counts = {
-      ";": (headerLine.match(/;/g) || []).length,
-      ",": (headerLine.match(/,/g) || []).length,
-      "\t": (headerLine.match(/\t/g) || []).length,
-    };
-    return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || ";";
-  }
-
-  function pickColumn(headers, kind) {
-    const H = headers.map(h => h.trim().toUpperCase());
-    for (const w of LIST_KIND[kind].heads) { const i = H.indexOf(w); if (i >= 0) return i; }
-    return Math.min(LIST_KIND[kind].defCol, Math.max(0, headers.length - 1));
-  }
-
-  // Extrai a lista de nomes de um texto CSV.
-  function parseCsvNames(text, kind) {
-    const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim().length);
-    if (!lines.length) return [];
-    const delim = detectDelim(lines[0]);
-    const headers = splitCsvLine(lines[0], delim);
-    const col = pickColumn(headers, kind);
-    const out = [], seen = new Set();
-    for (let i = 1; i < lines.length; i++) {
-      const parts = splitCsvLine(lines[i], delim);
-      let v = (parts[col] || "").trim().replace(/^"|"$/g, "");
-      const low = v.toLowerCase();
-      if (v && v.length > 1 && !/^\d+$/.test(v) && !seen.has(low)) {
-        seen.add(low); out.push(v);
-      }
-    }
-    return out;
-  }
+  // A leitura de CSV e o cadastro completo ficam em cadastro.js (window.Cadastro).
 
   // Lê o arquivo tentando UTF-8 e caindo para Windows-1252 (ANSI) se houver acento quebrado.
   async function readCsvText(file) {
@@ -1145,12 +1233,22 @@
     return txt;
   }
 
-  function fillDatalist(id, names) {
+  function fillDatalist(id, names, regs) {
     const dl = document.getElementById(id);
     if (!dl) return;
     dl.innerHTML = "";
+    const mapa = {};
+    (regs || []).forEach(r => { mapa[(r.nome || "").toLowerCase()] = r; });
     const frag = document.createDocumentFragment();
-    names.forEach(n => { const o = document.createElement("option"); o.value = n; frag.appendChild(o); });
+    names.forEach(n => {
+      const o = document.createElement("option");
+      o.value = n;
+      const r = mapa[(n || "").toLowerCase()];
+      if (r && r.crm) o.label = ((r.conselho || "CRM").toUpperCase()) +
+        (r.uf ? "-" + r.uf.toUpperCase() : "") + " " + r.crm;
+      else if (r && r.cidade) o.label = r.cidade;
+      frag.appendChild(o);
+    });
     dl.appendChild(frag);
   }
 
@@ -1169,19 +1267,31 @@
   async function loadDatalists() {
     for (const kind of Object.keys(LIST_KIND)) {
       const saved = loadSavedList(kind);
+      let regs = window.Cadastro.get(kind);
       if (saved && saved.length) {
-        fillDatalist(LIST_KIND[kind].dl, saved);
+        // lista salva sem os dados completos (versão antiga): recupera do CSV do repositório
+        if (!regs.length) regs = await fetchRegistros(kind);
+        fillDatalist(LIST_KIND[kind].dl, saved, regs);
         updateListStatus(kind, saved.length, "salva neste navegador");
         continue;
       }
-      try {
-        const r = await fetch(LIST_KIND[kind].url);
-        if (!r.ok) { updateListStatus(kind, 0, ""); continue; }
-        const names = parseCsvNames(await r.text(), kind);
-        fillDatalist(LIST_KIND[kind].dl, names);
-        updateListStatus(kind, names.length, names.length ? "do repositório (data/)" : "");
-      } catch (_) { updateListStatus(kind, 0, ""); }
+      const r = await fetchRegistros(kind, true);
+      if (!r.length) { updateListStatus(kind, 0, ""); continue; }
+      fillDatalist(LIST_KIND[kind].dl, r.map(x => x.nome), r);
+      updateListStatus(kind, r.length, "do repositório (data/)");
     }
+    renderMedicoHint(null);
+  }
+
+  // Lê o CSV publicado em data/ e guarda os registros completos (nome + CRM…).
+  async function fetchRegistros(kind) {
+    try {
+      const r = await fetch(LIST_KIND[kind].url);
+      if (!r.ok) return [];
+      const { registros } = window.Cadastro.parse(await r.text(), kind);
+      if (registros.length) window.Cadastro.set(kind, registros);
+      return registros;
+    } catch (_) { return []; }
   }
 
   // Aba "Listas": importação manual de CSV pelo usuário.
@@ -1194,12 +1304,15 @@
         if (!f) return;
         try {
           const text = await readCsvText(f);
-          const names = parseCsvNames(text, kind);
-          if (!names.length) { toast("Nenhum nome reconhecido nesse arquivo.", "err"); input.value = ""; return; }
-          fillDatalist(LIST_KIND[kind].dl, names);
-          saveList(kind, names);
-          updateListStatus(kind, names.length, "importada de " + f.name);
-          toast(names.length + " itens importados.");
+          const { nomes, registros } = window.Cadastro.parse(text, kind);
+          if (!nomes.length) { toast("Nenhum nome reconhecido nesse arquivo.", "err"); input.value = ""; return; }
+          window.Cadastro.set(kind, registros);
+          fillDatalist(LIST_KIND[kind].dl, nomes, registros);
+          saveList(kind, nomes);
+          updateListStatus(kind, nomes.length, "importada de " + f.name);
+          const comCrm = kind === "medicos" ? registros.filter(r => r.crm).length : 0;
+          toast(nomes.length + " itens importados." + (comCrm ? " " + comCrm + " com CRM." : ""));
+          renderMedicoHint(null);
         } catch (err) {
           toast("Falha ao ler o CSV: " + (err && err.message ? err.message : err), "err");
         }
@@ -1207,9 +1320,11 @@
       });
       if (clear) clear.addEventListener("click", () => {
         clearSavedList(kind);
+        window.Cadastro.clear(kind);
         fillDatalist(LIST_KIND[kind].dl, []);
         updateListStatus(kind, 0, "");
         toast("Lista removida deste navegador.");
+        renderMedicoHint(null);
       });
     }
   }

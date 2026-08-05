@@ -1,5 +1,5 @@
-NOME;CRM;UF;CONSELHO;CPF_CNPJ;EMAIL
-Dr. João Silva;18752;MG;CRM;;joao@exemplo.com
-Dra. Maria Souza;40211;SP;CRM;;maria@exemplo.com
-Dr. Carlos Andrade;55123;RJ;CRM;;
-Dra. Ana Beatriz Lima;72190;RS;CRM;;
+NOME;CRM;UF;CONSELHO;ESPECIALIDADE;RQE;ENDERECO;TELEFONE;CPF_CNPJ;EMAIL
+Dr. João Silva;18752;MG;CRM;Clínica Médica;;Rua das Acácias, 120 - Centro;(32) 3531-0001;;joao@exemplo.com
+Dra. Maria Souza;40211;SP;CRM;Pediatria;12345;Av. Paulista, 900 - Sala 12;(11) 3555-0002;;maria@exemplo.com
+Dr. Carlos Andrade;55123;RJ;CRM;Cardiologia;;Rua do Ouvidor, 45;(21) 2222-0003;;
+Dra. Ana Beatriz Lima;72190;RS;CRM;Dermatologia;;;;;
